@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Chemie Whiteboard</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div id="login-screen">
+        <div class="login-container">
+            <div class="login-header">
+                <span class="icon">🧪</span>
+                <h1>Chemie Whiteboard</h1>
+                <p class="subtitle">Kollaboratives Arbeiten in Echtzeit</p>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab active" data-tab="create">Raum erstellen</button>
+                <button class="tab" data-tab="join">Raum beitreten</button>
+                <button class="tab" data-tab="teacher">🔒 Lehrermodus</button>
+            </div>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="user-name">Dein Name</label>
+                    <input type="text" id="user-name" placeholder="z.B. Herr Wil" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="room-name">Raum-Name</label>
+                    <input type="text" id="room-name" placeholder="z.B. CH 9" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Raum erstellen</button>
+
+                <div class="info-box">
+                    <p>Als Lehrer erstellst du einen neuen Raum. Du erhältst eine Raum-ID, die du deinen Schülern gibst.</p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="whiteboard-screen" style="display: none;">
+        <div class="header">
+            <div class="header-left">
+                <h2 id="room-title">Raum: <span id="current-room"></span></h2>
+            </div>
+            <div class="header-right">
+                <button id="clear-btn" class="btn-secondary">Canvas leeren</button>
+                <button id="leave-btn" class="btn-secondary">Verlassen</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="canvas-wrapper">
+                <canvas id="canvas"></canvas>
+            </div>
+            
+            <div class="user-panel">
+                <h3>Aktive Nutzer</h3>
+                <div id="user-list"></div>
+            </div>
+        </div>
+
+        <div class="tools-panel">
+            <h4>Laborgeräte</h4>
+            <div id="tools-list" class="tools-grid"></div>
+        </div>
+    </div>
+
+    <script src="client.js"></script>
+</body>
+</html>

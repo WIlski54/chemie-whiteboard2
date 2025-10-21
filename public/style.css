@@ -1,0 +1,301 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    overflow: hidden; /* Verhindert das Scrollen der ganzen Seite */
+}
+
+/* ========== LOGIN SCREEN ========== */
+/* (Unverändert) */
+#login-screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-container {
+    background: white;
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.login-header h1 {
+    color: #667eea;
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #999;
+    font-size: 14px;
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.tab {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+.tab:hover {
+    border-color: #667eea;
+}
+
+.tab.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 14px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-primary:hover {
+    background: #5568d3;
+}
+
+.info-box {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f0f4ff;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #666;
+}
+
+/* ========== WHITEBOARD SCREEN ========== */
+#whiteboard-screen {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.header {
+    background: white;
+    padding: 15px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+}
+/* (Restlicher Header unverändert) */
+.header h2 {
+    font-size: 20px;
+    color: #333;
+}
+#current-room {
+    color: #667eea;
+}
+.header-right {
+    display: flex;
+    gap: 10px;
+}
+.btn-secondary {
+    padding: 10px 20px;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+.btn-secondary:hover {
+    border-color: #667eea;
+    color: #667eea;
+}
+
+/* Main Content Area (MODIFIZIERT) */
+.main-content {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden; /* Wichtig: Verhindert, dass der Wrapper scrollt */
+}
+
+.canvas-wrapper {
+    flex: 1;
+    overflow: hidden; /* MODIFIZIERT: von 'auto' zu 'hidden' */
+    background: #f0f0f0;
+    position: relative;
+    /* Verhindert versehentliches Scrollen/Zoomen der Seite auf iOS */
+    touch-action: none; 
+}
+
+#canvas {
+    background: white;
+    /* MODIFIZIERT: 'touch-action: none;' entfernt */
+    display: block;
+    /* Die Größe wird jetzt von client.js gesetzt, nicht mehr fix 2400x1600 */
+}
+
+/* User Panel (rechts) */
+/* (Unverändert) */
+.user-panel {
+    width: 250px;
+    background: white;
+    padding: 20px;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+}
+.user-panel h3 {
+    font-size: 16px;
+    margin-bottom: 15px;
+    color: #333;
+}
+#user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.user-item {
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.user-status {
+    width: 10px;
+    height: 10px;
+    background: #4caf50;
+    border-radius: 50%;
+}
+
+/* Tools Panel (unten) */
+/* (Unverändert) */
+.tools-panel {
+    background: white;
+    padding: 15px 25px;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    max-height: 200px;
+    overflow-y: auto;
+}
+.tools-panel h4 {
+    font-size: 14px;
+    margin-bottom: 10px;
+    color: #666;
+}
+.tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 15px;
+}
+.tool-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 2px solid transparent;
+}
+.tool-item:hover {
+    background: #f0f0f0;
+    border-color: #667eea;
+    transform: translateY(-2px);
+}
+.tool-item img {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+    margin-bottom: 5px;
+}
+.tool-item span {
+    font-size: 11px;
+    color: #666;
+    text-align: center;
+}
+
+/* (Restliche Styles unverändert) */
+@media (hover: none) and (pointer: coarse) {
+    .tool-item:active {
+        background: #667eea;
+        color: white;
+    }
+    
+    .btn-primary:active,
+    .btn-secondary:active {
+        transform: scale(0.95);
+    }
+}
+@media (max-width: 768px) {
+    .user-panel {
+        width: 200px;
+    }
+    
+    .tools-grid {
+        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    }
+}

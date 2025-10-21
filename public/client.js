@@ -10,7 +10,7 @@ let skipNextAdd = false;
 const VIRTUAL_WIDTH = 2400;
 const VIRTUAL_HEIGHT = 1600;
 
-// Laborgeräte Liste (unverändert)
+// Laborgeräte Liste
 const labEquipment = [
     { name: 'Becherglas', file: 'becherglas.png' },
     { name: 'Reagenzglas', file: 'reagenzglas.png' },
@@ -57,7 +57,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ========== LOGIN SCREEN ==========
-// (Unverändert)
 function initLoginScreen() {
     const tabs = document.querySelectorAll('.tab');
     const form = document.getElementById('login-form');
@@ -109,14 +108,14 @@ function joinRoom(userName, roomName) {
     initCanvas();
     initToolsPanel();
     initSocketListeners();
+    initToolbar(); 
 }
 
-// ========== CANVAS (MODIFIZIERT) ==========
+// ========== CANVAS ==========
 function initCanvas() {
     const canvasEl = document.getElementById('canvas');
     const wrapper = document.querySelector('.canvas-wrapper');
     
-    // Setze die Canvas auf die Größe des Containers
     canvasEl.width = wrapper.clientWidth;
     canvasEl.height = wrapper.clientHeight;
 
@@ -125,27 +124,23 @@ function initCanvas() {
         selection: true,
         preserveObjectStacking: true,
         stopContextMenu: true,
-        // Wichtig: Wir deaktivieren das Scrollen der Seite, 
-        // da wir Panning/Zooming selbst implementieren
         allowTouchScrolling: false 
     });
 
     console.log('🎨 Canvas initialisiert mit Container-Größe:', wrapper.clientWidth, 'x', wrapper.clientHeight);
 
-    // "Zoom to Fit" beim Start
     zoomToFit();
 
-    // Panning (Verschieben der Leinwand)
+    // Panning
     let isPanning = false;
     let lastPanX = 0;
     let lastPanY = 0;
 
     canvas.on('mouse:down', function (opt) {
         const e = opt.e;
-        // Panning starten (Alt-Taste, Mausrad-Klick oder 2-Finger-Touch)
         if (e.altKey || e.button === 1 || (opt.pointer && opt.e.touches && opt.e.touches.length === 2)) {
             isPanning = true;
-            canvas.selection = false; // Objektauswahl deaktivieren
+            canvas.selection = false;
             lastPanX = e.clientX;
             lastPanY = e.clientY;
         }
@@ -164,25 +159,24 @@ function initCanvas() {
 
     canvas.on('mouse:up', function () {
         isPanning = false;
-        canvas.selection = true; // Objektauswahl wieder aktivieren
+        canvas.selection = true;
     });
 
-    // Zooming (Mausrad)
+    // Zooming
     canvas.on('mouse:wheel', function (opt) {
         const delta = opt.e.deltaY;
         let zoom = canvas.getZoom();
         zoom *= 0.999 ** delta;
-        if (zoom > 20) zoom = 20; // Max Zoom
-        if (zoom < 0.05) zoom = 0.05; // Min Zoom
+        if (zoom > 20) zoom = 20;
+        if (zoom < 0.05) zoom = 0.05;
         
-        // Zoomen auf den Mauszeiger-Punkt
         canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
         
         opt.e.preventDefault();
         opt.e.stopPropagation();
     });
 
-    // Pinch-to-Zoom für Touch-Geräte
+    // Pinch-to-Zoom
     let lastDistance = 0;
 
     canvas.on('touch:gesture', function (opt) {
@@ -191,7 +185,6 @@ function initCanvas() {
             const p1 = { x: e.touches[0].clientX, y: e.touches[0].clientY };
             const p2 = { x: e.touches[1].clientX, y: e.touches[1].clientY };
             const distance = Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
-            const center = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
 
             if (opt.state === 'start') {
                 lastDistance = distance;
@@ -201,7 +194,6 @@ function initCanvas() {
                 if (newZoom > 20) newZoom = 20;
                 if (newZoom < 0.05) newZoom = 0.05;
 
-                // Zoomen auf den Mittelpunkt der Geste
                 canvas.zoomToPoint(canvas.getPointer(e), newZoom);
                 lastDistance = distance;
             }
@@ -209,15 +201,13 @@ function initCanvas() {
         }
     });
 
-    // Canvas-Größe anpassen, wenn das Fenster sich ändert
     window.addEventListener('resize', () => {
         canvasEl.width = wrapper.clientWidth;
         canvasEl.height = wrapper.clientHeight;
         canvas.setDimensions({ width: wrapper.clientWidth, height: wrapper.clientHeight });
-        zoomToFit(); // Erneut "Zoom to Fit" ausführen
+        zoomToFit();
     });
 
-    // KRITISCH: object:added nur bei ECHTEN User-Actions
     canvas.on('object:added', (e) => {
         if (skipNextAdd) {
             console.log('⏭️ object:added übersprungen (skipNextAdd)');
@@ -227,12 +217,9 @@ function initCanvas() {
         if (!isReceivingUpdate && e.target && e.target.id && !e.target._fromServer) {
             console.log('📤 Sende object-added:', e.target.id);
             socket.emit('object-added', serializeObject(e.target));
-        } else {
-            console.log('🔇 object:added ignoriert - isReceivingUpdate:', isReceivingUpdate, '_fromServer:', e.target._fromServer);
         }
     });
 
-    // KRITISCH: object:modified nur bei User-Interaktion
     canvas.on('object:modified', (e) => {
         if (!isReceivingUpdate && e.target && e.target.id) {
             console.log('📤 Sende object-modified:', e.target.id);
@@ -240,10 +227,20 @@ function initCanvas() {
         }
     });
 
+// NEU: Text-Änderungen synchronisieren
+    canvas.on('text:changed', (e) => {
+        if (!isReceivingUpdate && e.target && e.target.id) {
+            console.log('📝 Text geändert, sende Update:', e.target.id);
+            socket.emit('object-modified', serializeObject(e.target));
+        }
+    });
+
+
+
     document.getElementById('clear-btn').addEventListener('click', () => {
         if (confirm('Canvas wirklich leeren?')) {
             canvas.clear();
-            zoomToFit(); // Nach dem Leeren wieder zentrieren
+            zoomToFit();
             socket.emit('clear-canvas');
         }
     });
@@ -253,23 +250,63 @@ function initCanvas() {
     });
 }
 
+// ========== TOOLBAR FUNKTIONALITÄT ==========
+function initToolbar() {
+    let currentColor = '#000000';
+    
+    const colorPicker = document.getElementById('color-picker');
+    colorPicker.addEventListener('change', (e) => {
+        currentColor = e.target.value;
+        console.log('Farbe geändert:', currentColor);
+    });
+    
+    document.getElementById('text-btn').addEventListener('click', () => {
+        addTextToCanvas(currentColor);
+    });
+    
+    document.getElementById('arrow-btn').addEventListener('click', () => {
+        alert('Pfeil-Tool kommt als nächstes!');
+    });
+    
+    document.getElementById('draw-btn').addEventListener('click', () => {
+        alert('Zeichnen-Tool kommt als nächstes!');
+    });
+}
+
+function addTextToCanvas(color) {
+    const text = new fabric.IText('Text hier eingeben...', {
+        left: VIRTUAL_WIDTH / 2,
+        top: VIRTUAL_HEIGHT / 2,
+        fontSize: 24,
+        fill: color,
+        fontFamily: 'Arial',
+        id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        selectable: true,
+        editable: true
+    });
+    
+    canvas.add(text);
+    canvas.setActiveObject(text);
+    text.enterEditing();
+    canvas.renderAll();
+    
+    console.log('Text hinzugefügt:', text.id);
+}
+
 function zoomToFit() {
     const wrapper = document.querySelector('.canvas-wrapper');
     const width = wrapper.clientWidth;
     const height = wrapper.clientHeight;
 
-    // "Contain"-Skalierung berechnen
     const scaleX = width / VIRTUAL_WIDTH;
     const scaleY = height / VIRTUAL_HEIGHT;
-    const zoom = Math.min(scaleX, scaleY) * 0.95; // 95% damit man einen Rand sieht
+    const zoom = Math.min(scaleX, scaleY) * 0.95;
 
     canvas.setZoom(zoom);
 
-    // Zentrieren
     const panX = (width - (VIRTUAL_WIDTH * zoom)) / 2;
     const panY = (height - (VIRTUAL_HEIGHT * zoom)) / 2;
 
-    // viewportTransform: [zoomX, skewX, skewY, zoomY, panX, panY]
     canvas.viewportTransform = [zoom, 0, 0, zoom, panX, panY];
     canvas.renderAll();
     console.log('🔎 Zoom to Fit durchgeführt. Zoom:', zoom);
@@ -277,7 +314,6 @@ function zoomToFit() {
 
 // ========== TOOLS ==========
 function initToolsPanel() {
-    // (Unverändert)
     const toolsList = document.getElementById('tools-list');
 
     labEquipment.forEach(equipment => {
@@ -301,7 +337,6 @@ function addImageToCanvas(equipment) {
         img.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         img.scaleToWidth(100);
         
-        // MODIFIZIERT: In die Mitte der *virtuellen* Welt setzen
         img.set({
             left: VIRTUAL_WIDTH / 2 - 50,
             top: VIRTUAL_HEIGHT / 2 - 50,
@@ -313,10 +348,6 @@ function addImageToCanvas(equipment) {
 
         console.log('✅ Bild geladen, ID:', img.id);
         canvas.add(img);
-        
-        // Nicht mehr nötig, da object:added das automatisch macht
-        // canvas.setActiveObject(img); 
-        // canvas.renderAll();
     }, { crossOrigin: 'anonymous' });
 }
 
@@ -325,7 +356,6 @@ function initSocketListeners() {
     console.log('🔌 Socket Listeners initialisiert');
 
     socket.on('users-update', (users) => {
-        // (Unverändert)
         console.log('👥 User-Update:', users);
         const userList = document.getElementById('user-list');
         userList.innerHTML = '';
@@ -348,7 +378,6 @@ function initSocketListeners() {
             loadObjectFromServer(objData);
         });
         
-        // Nach dem Laden aller Objekte, "Zoom to Fit" ausführen
         zoomToFit();
         
         setTimeout(() => { 
@@ -358,7 +387,6 @@ function initSocketListeners() {
     });
 
     socket.on('object-added', (objData) => {
-        // (Unverändert)
         console.log('📥 object-added empfangen:', objData.id);
         isReceivingUpdate = true;
         loadObjectFromServer(objData);
@@ -366,13 +394,16 @@ function initSocketListeners() {
     });
 
     socket.on('object-modified', (objData) => {
-        // (Unverändert)
         console.log('📥 object-modified empfangen:', objData.id);
         const obj = canvas.getObjects().find(o => o.id === objData.id);
         if (obj) {
             isReceivingUpdate = true;
-            // Wichtig: set() anstatt einzelner Zuweisungen, 
-            // damit Fabric.js die Transformationen korrekt anwendet.
+            
+            // Für Text-Objekte auch den Text-Inhalt aktualisieren
+            if ((obj.type === 'i-text' || obj.type === 'text') && objData.text !== undefined) {
+                obj.set({ text: objData.text });
+            }
+            
             obj.set({
                 left: objData.left,
                 top: objData.top,
@@ -389,7 +420,6 @@ function initSocketListeners() {
     });
 
     socket.on('object-removed', (data) => {
-        // (Unverändert)
         console.log('📥 object-removed empfangen:', data.id);
         const obj = canvas.getObjects().find(o => o.id === data.id);
         if (obj) {
@@ -403,28 +433,40 @@ function initSocketListeners() {
         console.log('📥 clear-canvas empfangen');
         isReceivingUpdate = true;
         canvas.clear();
-        zoomToFit(); // Nach dem Leeren zentrieren
+        zoomToFit();
         setTimeout(() => { isReceivingUpdate = false; }, 50);
     });
 }
 
 // ========== HELPER ==========
 function serializeObject(obj) {
-    // (Unverändert)
-    return {
+    const baseData = {
         id: obj.id,
         type: obj.type,
         left: obj.left,
         top: obj.top,
         scaleX: obj.scaleX,
         scaleY: obj.scaleY,
-        angle: obj.angle,
-        src: obj.getSrc ? obj.getSrc() : null
+        angle: obj.angle
     };
+    
+    // Für Bilder
+    if (obj.type === 'image' && obj.getSrc) {
+        baseData.src = obj.getSrc();
+    }
+    
+    // Für Text
+    if (obj.type === 'i-text' || obj.type === 'text') {
+        baseData.text = obj.text;
+        baseData.fontSize = obj.fontSize;
+        baseData.fill = obj.fill;
+        baseData.fontFamily = obj.fontFamily;
+    }
+    
+    return baseData;
 }
 
 function loadObjectFromServer(objData) {
-    // (Unverändert)
     console.log('🔧 loadObjectFromServer aufgerufen für:', objData.id);
     
     const exists = canvas.getObjects().find(o => o.id === objData.id);
@@ -433,6 +475,7 @@ function loadObjectFromServer(objData) {
         return;
     }
 
+    // Bild laden
     if (objData.type === 'image' && objData.src) {
         console.log('🖼️ Lade Bild von URL:', objData.src);
         skipNextAdd = true;
@@ -457,7 +500,34 @@ function loadObjectFromServer(objData) {
             
             delete img._fromServer;
         }, { crossOrigin: 'anonymous' });
-    } else {
+    }
+    // Text laden
+    else if (objData.type === 'i-text' || objData.type === 'text') {
+        console.log('📝 Lade Text:', objData.text);
+        skipNextAdd = true;
+        
+        const text = new fabric.IText(objData.text, {
+            left: objData.left,
+            top: objData.top,
+            fontSize: objData.fontSize,
+            fill: objData.fill,
+            fontFamily: objData.fontFamily,
+            scaleX: objData.scaleX,
+            scaleY: objData.scaleY,
+            angle: objData.angle,
+            id: objData.id,
+            _fromServer: true,
+            selectable: true,
+            editable: true
+        });
+        
+        canvas.add(text);
+        canvas.renderAll();
+        console.log('✅ Text zur Canvas hinzugefügt');
+        
+        delete text._fromServer;
+    }
+    else {
         console.warn('⚠️ Ungültiges Objekt:', objData);
     }
 }

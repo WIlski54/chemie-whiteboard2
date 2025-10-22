@@ -207,7 +207,6 @@ function initCanvas() {
             return;
         }
         
-        // WICHTIG: Paths überspringen, die werden in path:created gesendet
         if (e.target && e.target.type === 'path') {
             console.log('⏭️ Path in object:added übersprungen - wird in path:created gesendet');
             return;
@@ -233,12 +232,11 @@ function initCanvas() {
         }
     });
 
-   canvas.on('path:created', (e) => {
+    canvas.on('path:created', (e) => {
         const path = e.path;
         path.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         console.log('✏️ Freihand-Pfad erstellt:', path.id);
         
-        // WICHTIG: Manuell senden, da object:added zu früh kommt
         if (!isReceivingUpdate) {
             console.log('📤 Sende Path manuell:', path.id);
             socket.emit('object-added', serializeObject(path));
@@ -271,7 +269,10 @@ function initCanvas() {
 
 function initToolbar() {
     let currentColor = '#000000';
+    let currentBrushWidth = 3;
+    let isFilled = false;
     
+    // Farb-Picker
     const colorPicker = document.getElementById('color-picker');
     colorPicker.addEventListener('change', (e) => {
         currentColor = e.target.value;
@@ -282,41 +283,92 @@ function initToolbar() {
         }
     });
     
-    document.getElementById('text-btn').addEventListener('click', () => {
+    // Pinselstärke-Slider
+    const brushWidth = document.getElementById('brush-width');
+    const brushWidthValue = document.getElementById('brush-width-value');
+    brushWidth.addEventListener('input', (e) => {
+        currentBrushWidth = parseInt(e.target.value);
+        brushWidthValue.textContent = currentBrushWidth;
+        
         if (canvas.isDrawingMode) {
-            canvas.isDrawingMode = false;
-            document.getElementById('draw-btn').classList.remove('active');
+            canvas.freeDrawingBrush.width = currentBrushWidth;
         }
+    });
+    
+    // Gefüllt-Checkbox
+    const fillCheckbox = document.getElementById('fill-checkbox');
+    fillCheckbox.addEventListener('change', (e) => {
+        isFilled = e.target.checked;
+        console.log('Gefüllt:', isFilled);
+    });
+    
+    // Text-Button
+    document.getElementById('text-btn').addEventListener('click', () => {
+        deactivateAllModes();
         addTextToCanvas(currentColor);
     });
     
+    // Pfeil-Button
     document.getElementById('arrow-btn').addEventListener('click', () => {
-        if (canvas.isDrawingMode) {
-            canvas.isDrawingMode = false;
-            document.getElementById('draw-btn').classList.remove('active');
-        }
-        startArrowDrawing(currentColor);
+        deactivateAllModes();
+        startArrowDrawing(currentColor, currentBrushWidth);
     });
     
+    // Zeichnen-Button
     document.getElementById('draw-btn').addEventListener('click', () => {
-        toggleDrawingMode(currentColor);
+        deactivateAllModes();
+        toggleDrawingMode(currentColor, currentBrushWidth);
+    });
+    
+    // Radiergummi-Button
+    document.getElementById('eraser-btn').addEventListener('click', () => {
+        deactivateAllModes();
+        toggleEraserMode();
+    });
+    
+    // Rechteck-Button
+    document.getElementById('rect-btn').addEventListener('click', () => {
+        deactivateAllModes();
+        startShapeDrawing('rect', currentColor, currentBrushWidth, isFilled);
+    });
+    
+    // Kreis-Button
+    document.getElementById('circle-btn').addEventListener('click', () => {
+        deactivateAllModes();
+        startShapeDrawing('circle', currentColor, currentBrushWidth, isFilled);
+    });
+    
+    // Bild-Upload
+    document.getElementById('image-upload').addEventListener('change', (e) => {
+        deactivateAllModes();
+        handleImageUpload(e);
     });
 }
 
-function toggleDrawingMode(color) {
+function deactivateAllModes() {
+    canvas.isDrawingMode = false;
+    canvas.selection = true;
+    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+}
+
+function toggleDrawingMode(color, width) {
     const drawBtn = document.getElementById('draw-btn');
     
-    if (canvas.isDrawingMode) {
-        canvas.isDrawingMode = false;
-        drawBtn.classList.remove('active');
-        console.log('Zeichenmodus deaktiviert');
-    } else {
-        canvas.isDrawingMode = true;
-        canvas.freeDrawingBrush.color = color;
-        canvas.freeDrawingBrush.width = 3;
-        drawBtn.classList.add('active');
-        console.log('Zeichenmodus aktiviert');
-    }
+    canvas.isDrawingMode = true;
+    canvas.freeDrawingBrush.color = color;
+    canvas.freeDrawingBrush.width = width;
+    drawBtn.classList.add('active');
+    console.log('Zeichenmodus aktiviert');
+}
+
+function toggleEraserMode() {
+    const eraserBtn = document.getElementById('eraser-btn');
+    
+    canvas.isDrawingMode = true;
+    canvas.freeDrawingBrush = new fabric.EraserBrush(canvas);
+    canvas.freeDrawingBrush.width = 20;
+    eraserBtn.classList.add('active');
+    console.log('Radiergummi aktiviert');
 }
 
 function addTextToCanvas(color) {
@@ -339,13 +391,14 @@ function addTextToCanvas(color) {
     console.log('Text hinzugefügt:', text.id);
 }
 
-function startArrowDrawing(color) {
+function startArrowDrawing(color, width) {
     let isDown = false;
     let startX, startY;
     let tempLine = null;
     
     canvas.defaultCursor = 'crosshair';
     canvas.selection = false;
+    document.getElementById('arrow-btn').classList.add('active');
     
     const mouseDown = function(o) {
         if (!isDown) {
@@ -367,7 +420,7 @@ function startArrowDrawing(color) {
         
         tempLine = new fabric.Line([startX, startY, pointer.x, pointer.y], {
             stroke: color,
-            strokeWidth: 3,
+            strokeWidth: width,
             selectable: false,
             evented: false
         });
@@ -385,7 +438,7 @@ function startArrowDrawing(color) {
                 canvas.remove(tempLine);
             }
             
-            createArrow(startX, startY, pointer.x, pointer.y, color);
+            createArrow(startX, startY, pointer.x, pointer.y, color, width);
             
             canvas.off('mouse:down', mouseDown);
             canvas.off('mouse:move', mouseMove);
@@ -401,22 +454,23 @@ function startArrowDrawing(color) {
     canvas.on('mouse:up', mouseUp);
 }
 
-function createArrow(x1, y1, x2, y2, color) {
+function createArrow(x1, y1, x2, y2, color, width) {
     const angle = Math.atan2(y2 - y1, x2 - x1);
     
     const line = new fabric.Line([x1, y1, x2, y2], {
         stroke: color,
-        strokeWidth: 3,
+        strokeWidth: width,
         selectable: false
     });
     
+    const headSize = Math.max(15, width * 3);
     const arrowHead = new fabric.Triangle({
         left: x2,
         top: y2,
         originX: 'center',
         originY: 'center',
-        width: 15,
-        height: 20,
+        width: headSize,
+        height: headSize * 1.3,
         fill: color,
         angle: (angle * 180 / Math.PI) + 90,
         selectable: false
@@ -431,6 +485,180 @@ function createArrow(x1, y1, x2, y2, color) {
     canvas.renderAll();
     
     console.log('Pfeil hinzugefügt:', arrow.id);
+}
+
+function startShapeDrawing(shapeType, color, width, filled) {
+    let isDown = false;
+    let startX, startY;
+    let tempShape = null;
+    
+    canvas.defaultCursor = 'crosshair';
+    canvas.selection = false;
+    
+    const btnId = shapeType === 'rect' ? 'rect-btn' : 'circle-btn';
+    document.getElementById(btnId).classList.add('active');
+    
+    const mouseDown = function(o) {
+        if (!isDown) {
+            isDown = true;
+            const pointer = canvas.getPointer(o.e);
+            startX = pointer.x;
+            startY = pointer.y;
+        }
+    };
+    
+    const mouseMove = function(o) {
+        if (!isDown) return;
+        
+        const pointer = canvas.getPointer(o.e);
+        
+        if (tempShape) {
+            canvas.remove(tempShape);
+        }
+        
+        const left = Math.min(startX, pointer.x);
+        const top = Math.min(startY, pointer.y);
+        const width2 = Math.abs(pointer.x - startX);
+        const height2 = Math.abs(pointer.y - startY);
+        
+        if (shapeType === 'rect') {
+            tempShape = new fabric.Rect({
+                left: left,
+                top: top,
+                width: width2,
+                height: height2,
+                fill: filled ? color : 'transparent',
+                stroke: color,
+                strokeWidth: width,
+                selectable: false,
+                evented: false
+            });
+        } else {
+            const radius = Math.sqrt(width2 * width2 + height2 * height2) / 2;
+            tempShape = new fabric.Circle({
+                left: startX - radius,
+                top: startY - radius,
+                radius: radius,
+                fill: filled ? color : 'transparent',
+                stroke: color,
+                strokeWidth: width,
+                selectable: false,
+                evented: false
+            });
+        }
+        
+        canvas.add(tempShape);
+        canvas.renderAll();
+    };
+    
+    const mouseUp = function(o) {
+        if (isDown) {
+            isDown = false;
+            const pointer = canvas.getPointer(o.e);
+            
+            if (tempShape) {
+                canvas.remove(tempShape);
+            }
+            
+            const left = Math.min(startX, pointer.x);
+            const top = Math.min(startY, pointer.y);
+            const width2 = Math.abs(pointer.x - startX);
+            const height2 = Math.abs(pointer.y - startY);
+            
+            let finalShape;
+            
+            if (shapeType === 'rect') {
+                finalShape = new fabric.Rect({
+                    left: left,
+                    top: top,
+                    width: width2,
+                    height: height2,
+                    fill: filled ? color : 'transparent',
+                    stroke: color,
+                    strokeWidth: width,
+                    id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                    selectable: true
+                });
+            } else {
+                const radius = Math.sqrt(width2 * width2 + height2 * height2) / 2;
+                finalShape = new fabric.Circle({
+                    left: startX - radius,
+                    top: startY - radius,
+                    radius: radius,
+                    fill: filled ? color : 'transparent',
+                    stroke: color,
+                    strokeWidth: width,
+                    id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                    selectable: true
+                });
+            }
+            
+            canvas.add(finalShape);
+            canvas.renderAll();
+            
+            canvas.off('mouse:down', mouseDown);
+            canvas.off('mouse:move', mouseMove);
+            canvas.off('mouse:up', mouseUp);
+            canvas.defaultCursor = 'default';
+            canvas.selection = true;
+            document.getElementById(btnId).classList.remove('active');
+            
+            console.log('Form hinzugefügt:', finalShape.id);
+        }
+    };
+    
+    canvas.on('mouse:down', mouseDown);
+    canvas.on('mouse:move', mouseMove);
+    canvas.on('mouse:up', mouseUp);
+}
+
+function handleImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    console.log('📤 Lade Bild hoch:', file.name);
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    fetch('/upload-image', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.url) {
+            console.log('✅ Bild hochgeladen:', data.url);
+            addUploadedImageToCanvas(data.url);
+        } else {
+            alert('Fehler beim Hochladen!');
+        }
+    })
+    .catch(error => {
+        console.error('Upload-Fehler:', error);
+        alert('Fehler beim Hochladen!');
+    });
+    
+    e.target.value = '';
+}
+
+function addUploadedImageToCanvas(url) {
+    fabric.Image.fromURL(url, (img) => {
+        img.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        img.scaleToWidth(200);
+        
+        img.set({
+            left: VIRTUAL_WIDTH / 2 - 100,
+            top: VIRTUAL_HEIGHT / 2 - 100,
+            selectable: true,
+            hasControls: true,
+            hasBorders: true,
+            objectCaching: false
+        });
+
+        console.log('✅ Hochgeladenes Bild zur Canvas hinzugefügt:', img.id);
+        canvas.add(img);
+    }, { crossOrigin: 'anonymous' });
 }
 
 function zoomToFit() {
@@ -472,10 +700,7 @@ function addImageToCanvas(equipment) {
     
     console.log('➕ Füge Bild hinzu:', equipment.name);
     
-    if (canvas.isDrawingMode) {
-        canvas.isDrawingMode = false;
-        document.getElementById('draw-btn').classList.remove('active');
-    }
+    deactivateAllModes();
     
     fabric.Image.fromURL(imgPath, (img) => {
         img.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -607,6 +832,15 @@ function serializeObject(obj) {
         console.log('📤 Serialisiere Path:', obj.id);
     }
     
+    if (obj.type === 'rect' || obj.type === 'circle') {
+        baseData.width = obj.width;
+        baseData.height = obj.height;
+        baseData.radius = obj.radius;
+        baseData.fill = obj.fill;
+        baseData.stroke = obj.stroke;
+        baseData.strokeWidth = obj.strokeWidth;
+    }
+    
     if (obj.type === 'group') {
         baseData.objects = obj.getObjects().map(o => ({
             type: o.type,
@@ -705,6 +939,53 @@ function loadObjectFromServer(objData) {
             console.log('✅ Freihand-Pfad hinzugefügt');
             delete path._fromServer;
         });
+    }
+    else if (objData.type === 'rect') {
+        console.log('⬜ Lade Rechteck:', objData.id);
+        skipNextAdd = true;
+        
+        const rect = new fabric.Rect({
+            left: objData.left,
+            top: objData.top,
+            width: objData.width,
+            height: objData.height,
+            fill: objData.fill,
+            stroke: objData.stroke,
+            strokeWidth: objData.strokeWidth,
+            scaleX: objData.scaleX,
+            scaleY: objData.scaleY,
+            angle: objData.angle,
+            id: objData.id,
+            _fromServer: true,
+            selectable: true
+        });
+        
+        canvas.add(rect);
+        canvas.renderAll();
+        delete rect._fromServer;
+    }
+    else if (objData.type === 'circle') {
+        console.log('⭕ Lade Kreis:', objData.id);
+        skipNextAdd = true;
+        
+        const circle = new fabric.Circle({
+            left: objData.left,
+            top: objData.top,
+            radius: objData.radius,
+            fill: objData.fill,
+            stroke: objData.stroke,
+            strokeWidth: objData.strokeWidth,
+            scaleX: objData.scaleX,
+            scaleY: objData.scaleY,
+            angle: objData.angle,
+            id: objData.id,
+            _fromServer: true,
+            selectable: true
+        });
+        
+        canvas.add(circle);
+        canvas.renderAll();
+        delete circle._fromServer;
     }
     else if (objData.type === 'group' && objData.objects) {
         console.log('➡️ Lade Pfeil (Group):', objData.id);

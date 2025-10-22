@@ -54,7 +54,7 @@
             </div>
         </div>
 
-<!-- Werkzeug-Toolbar -->
+        <!-- Werkzeug-Toolbar -->
         <div class="toolbar">
             <button id="text-btn" class="tool-btn" title="Text hinzufügen">
                 📝 Text
@@ -65,10 +65,42 @@
             <button id="draw-btn" class="tool-btn" title="Freihand zeichnen">
                 ✏️ Zeichnen
             </button>
+            <button id="eraser-btn" class="tool-btn" title="Radiergummi">
+                🧹 Radierer
+            </button>
+            
+            <div class="toolbar-separator"></div>
+            
+            <button id="rect-btn" class="tool-btn" title="Rechteck">
+                ⬜ Rechteck
+            </button>
+            <button id="circle-btn" class="tool-btn" title="Kreis">
+                ⭕ Kreis
+            </button>
+            <label class="tool-checkbox">
+                <input type="checkbox" id="fill-checkbox">
+                <span>Gefüllt</span>
+            </label>
+            
+            <div class="toolbar-separator"></div>
+            
+            <label class="brush-width-container">
+                <span>Stärke:</span>
+                <input type="range" id="brush-width" min="1" max="20" value="3">
+                <span id="brush-width-value">3</span>
+            </label>
+            
             <div class="color-picker-container">
                 <label>Farbe:</label>
                 <input type="color" id="color-picker" value="#000000">
             </div>
+            
+            <div class="toolbar-separator"></div>
+            
+            <label for="image-upload" class="tool-btn upload-btn" title="Bild hochladen">
+                🖼️ Bild hochladen
+                <input type="file" id="image-upload" accept="image/*" style="display: none;">
+            </label>
         </div>
 
         <div class="main-content">

@@ -205,7 +205,63 @@ body {
     border-radius: 6px;
     cursor: pointer;
 }
+/* ========== TOOLBAR ERWEITERUNGEN ========== */
+.toolbar-separator {
+    width: 1px;
+    height: 30px;
+    background: #e0e0e0;
+    margin: 0 5px;
+}
 
+.tool-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0 10px;
+}
+
+.tool-checkbox input[type="checkbox"] {
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.brush-width-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.brush-width-container span {
+    color: #333;
+}
+
+#brush-width {
+    width: 100px;
+    cursor: pointer;
+}
+
+#brush-width-value {
+    min-width: 20px;
+    text-align: center;
+    font-weight: 600;
+    color: #667eea;
+}
+
+.upload-btn {
+    position: relative;
+}
+
+.upload-btn:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
 /* (Restlicher Header unverändert) */
 .header h2 {
     font-size: 20px;

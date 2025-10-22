@@ -6,11 +6,9 @@ let currentUser = null;
 let isReceivingUpdate = false;
 let skipNextAdd = false;
 
-// Definiere die "virtuelle" Größe deiner Arbeitsfläche
 const VIRTUAL_WIDTH = 2400;
 const VIRTUAL_HEIGHT = 1600;
 
-// Laborgeräte Liste
 const labEquipment = [
     { name: 'Becherglas', file: 'becherglas.png' },
     { name: 'Reagenzglas', file: 'reagenzglas.png' },
@@ -51,12 +49,10 @@ const labEquipment = [
     { name: 'Wasserstrahlpumpe', file: 'wasserstrahlpumpe.png' }
 ];
 
-// ========== INITIALISIERUNG ==========
 document.addEventListener('DOMContentLoaded', () => {
     initLoginScreen();
 });
 
-// ========== LOGIN SCREEN ==========
 function initLoginScreen() {
     const tabs = document.querySelectorAll('.tab');
     const form = document.getElementById('login-form');
@@ -108,10 +104,9 @@ function joinRoom(userName, roomName) {
     initCanvas();
     initToolsPanel();
     initSocketListeners();
-    initToolbar(); 
+    initToolbar();
 }
 
-// ========== CANVAS ==========
 function initCanvas() {
     const canvasEl = document.getElementById('canvas');
     const wrapper = document.querySelector('.canvas-wrapper');
@@ -124,14 +119,13 @@ function initCanvas() {
         selection: true,
         preserveObjectStacking: true,
         stopContextMenu: true,
-        allowTouchScrolling: false 
+        allowTouchScrolling: false
     });
 
     console.log('🎨 Canvas initialisiert mit Container-Größe:', wrapper.clientWidth, 'x', wrapper.clientHeight);
 
     zoomToFit();
 
-    // Panning
     let isPanning = false;
     let lastPanX = 0;
     let lastPanY = 0;
@@ -162,7 +156,6 @@ function initCanvas() {
         canvas.selection = true;
     });
 
-    // Zooming
     canvas.on('mouse:wheel', function (opt) {
         const delta = opt.e.deltaY;
         let zoom = canvas.getZoom();
@@ -176,7 +169,6 @@ function initCanvas() {
         opt.e.stopPropagation();
     });
 
-    // Pinch-to-Zoom
     let lastDistance = 0;
 
     canvas.on('touch:gesture', function (opt) {
@@ -214,8 +206,15 @@ function initCanvas() {
             skipNextAdd = false;
             return;
         }
+        
+        // WICHTIG: Paths überspringen, die werden in path:created gesendet
+        if (e.target && e.target.type === 'path') {
+            console.log('⏭️ Path in object:added übersprungen - wird in path:created gesendet');
+            return;
+        }
+        
         if (!isReceivingUpdate && e.target && e.target.id && !e.target._fromServer) {
-            console.log('📤 Sende object-added:', e.target.id);
+            console.log('📤 Sende object-added:', e.target.id, e.target.type);
             socket.emit('object-added', serializeObject(e.target));
         }
     });
@@ -227,7 +226,6 @@ function initCanvas() {
         }
     });
 
-// NEU: Text-Änderungen synchronisieren
     canvas.on('text:changed', (e) => {
         if (!isReceivingUpdate && e.target && e.target.id) {
             console.log('📝 Text geändert, sende Update:', e.target.id);
@@ -235,7 +233,17 @@ function initCanvas() {
         }
     });
 
-
+   canvas.on('path:created', (e) => {
+        const path = e.path;
+        path.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        console.log('✏️ Freihand-Pfad erstellt:', path.id);
+        
+        // WICHTIG: Manuell senden, da object:added zu früh kommt
+        if (!isReceivingUpdate) {
+            console.log('📤 Sende Path manuell:', path.id);
+            socket.emit('object-added', serializeObject(path));
+        }
+    });
 
     document.getElementById('clear-btn').addEventListener('click', () => {
         if (confirm('Canvas wirklich leeren?')) {
@@ -248,9 +256,19 @@ function initCanvas() {
     document.getElementById('leave-btn').addEventListener('click', () => {
         location.reload();
     });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                canvas.remove(activeObject);
+                canvas.renderAll();
+                console.log('Objekt gelöscht:', activeObject.id);
+            }
+        }
+    });
 }
 
-// ========== TOOLBAR FUNKTIONALITÄT ==========
 function initToolbar() {
     let currentColor = '#000000';
     
@@ -258,19 +276,47 @@ function initToolbar() {
     colorPicker.addEventListener('change', (e) => {
         currentColor = e.target.value;
         console.log('Farbe geändert:', currentColor);
+        
+        if (canvas.isDrawingMode) {
+            canvas.freeDrawingBrush.color = currentColor;
+        }
     });
     
     document.getElementById('text-btn').addEventListener('click', () => {
+        if (canvas.isDrawingMode) {
+            canvas.isDrawingMode = false;
+            document.getElementById('draw-btn').classList.remove('active');
+        }
         addTextToCanvas(currentColor);
     });
     
     document.getElementById('arrow-btn').addEventListener('click', () => {
-        alert('Pfeil-Tool kommt als nächstes!');
+        if (canvas.isDrawingMode) {
+            canvas.isDrawingMode = false;
+            document.getElementById('draw-btn').classList.remove('active');
+        }
+        startArrowDrawing(currentColor);
     });
     
     document.getElementById('draw-btn').addEventListener('click', () => {
-        alert('Zeichnen-Tool kommt als nächstes!');
+        toggleDrawingMode(currentColor);
     });
+}
+
+function toggleDrawingMode(color) {
+    const drawBtn = document.getElementById('draw-btn');
+    
+    if (canvas.isDrawingMode) {
+        canvas.isDrawingMode = false;
+        drawBtn.classList.remove('active');
+        console.log('Zeichenmodus deaktiviert');
+    } else {
+        canvas.isDrawingMode = true;
+        canvas.freeDrawingBrush.color = color;
+        canvas.freeDrawingBrush.width = 3;
+        drawBtn.classList.add('active');
+        console.log('Zeichenmodus aktiviert');
+    }
 }
 
 function addTextToCanvas(color) {
@@ -293,6 +339,100 @@ function addTextToCanvas(color) {
     console.log('Text hinzugefügt:', text.id);
 }
 
+function startArrowDrawing(color) {
+    let isDown = false;
+    let startX, startY;
+    let tempLine = null;
+    
+    canvas.defaultCursor = 'crosshair';
+    canvas.selection = false;
+    
+    const mouseDown = function(o) {
+        if (!isDown) {
+            isDown = true;
+            const pointer = canvas.getPointer(o.e);
+            startX = pointer.x;
+            startY = pointer.y;
+        }
+    };
+    
+    const mouseMove = function(o) {
+        if (!isDown) return;
+        
+        const pointer = canvas.getPointer(o.e);
+        
+        if (tempLine) {
+            canvas.remove(tempLine);
+        }
+        
+        tempLine = new fabric.Line([startX, startY, pointer.x, pointer.y], {
+            stroke: color,
+            strokeWidth: 3,
+            selectable: false,
+            evented: false
+        });
+        
+        canvas.add(tempLine);
+        canvas.renderAll();
+    };
+    
+    const mouseUp = function(o) {
+        if (isDown) {
+            isDown = false;
+            const pointer = canvas.getPointer(o.e);
+            
+            if (tempLine) {
+                canvas.remove(tempLine);
+            }
+            
+            createArrow(startX, startY, pointer.x, pointer.y, color);
+            
+            canvas.off('mouse:down', mouseDown);
+            canvas.off('mouse:move', mouseMove);
+            canvas.off('mouse:up', mouseUp);
+            canvas.defaultCursor = 'default';
+            canvas.selection = true;
+            document.getElementById('arrow-btn').classList.remove('active');
+        }
+    };
+    
+    canvas.on('mouse:down', mouseDown);
+    canvas.on('mouse:move', mouseMove);
+    canvas.on('mouse:up', mouseUp);
+}
+
+function createArrow(x1, y1, x2, y2, color) {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    
+    const line = new fabric.Line([x1, y1, x2, y2], {
+        stroke: color,
+        strokeWidth: 3,
+        selectable: false
+    });
+    
+    const arrowHead = new fabric.Triangle({
+        left: x2,
+        top: y2,
+        originX: 'center',
+        originY: 'center',
+        width: 15,
+        height: 20,
+        fill: color,
+        angle: (angle * 180 / Math.PI) + 90,
+        selectable: false
+    });
+    
+    const arrow = new fabric.Group([line, arrowHead], {
+        id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+        selectable: true
+    });
+    
+    canvas.add(arrow);
+    canvas.renderAll();
+    
+    console.log('Pfeil hinzugefügt:', arrow.id);
+}
+
 function zoomToFit() {
     const wrapper = document.querySelector('.canvas-wrapper');
     const width = wrapper.clientWidth;
@@ -312,7 +452,6 @@ function zoomToFit() {
     console.log('🔎 Zoom to Fit durchgeführt. Zoom:', zoom);
 }
 
-// ========== TOOLS ==========
 function initToolsPanel() {
     const toolsList = document.getElementById('tools-list');
 
@@ -333,6 +472,11 @@ function addImageToCanvas(equipment) {
     
     console.log('➕ Füge Bild hinzu:', equipment.name);
     
+    if (canvas.isDrawingMode) {
+        canvas.isDrawingMode = false;
+        document.getElementById('draw-btn').classList.remove('active');
+    }
+    
     fabric.Image.fromURL(imgPath, (img) => {
         img.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         img.scaleToWidth(100);
@@ -351,7 +495,6 @@ function addImageToCanvas(equipment) {
     }, { crossOrigin: 'anonymous' });
 }
 
-// ========== SOCKET LISTENERS ==========
 function initSocketListeners() {
     console.log('🔌 Socket Listeners initialisiert');
 
@@ -387,7 +530,7 @@ function initSocketListeners() {
     });
 
     socket.on('object-added', (objData) => {
-        console.log('📥 object-added empfangen:', objData.id);
+        console.log('📥 object-added empfangen:', objData.id, objData.type);
         isReceivingUpdate = true;
         loadObjectFromServer(objData);
         setTimeout(() => { isReceivingUpdate = false; }, 100);
@@ -399,7 +542,6 @@ function initSocketListeners() {
         if (obj) {
             isReceivingUpdate = true;
             
-            // Für Text-Objekte auch den Text-Inhalt aktualisieren
             if ((obj.type === 'i-text' || obj.type === 'text') && objData.text !== undefined) {
                 obj.set({ text: objData.text });
             }
@@ -438,7 +580,6 @@ function initSocketListeners() {
     });
 }
 
-// ========== HELPER ==========
 function serializeObject(obj) {
     const baseData = {
         id: obj.id,
@@ -450,12 +591,10 @@ function serializeObject(obj) {
         angle: obj.angle
     };
     
-    // Für Bilder
     if (obj.type === 'image' && obj.getSrc) {
         baseData.src = obj.getSrc();
     }
     
-    // Für Text
     if (obj.type === 'i-text' || obj.type === 'text') {
         baseData.text = obj.text;
         baseData.fontSize = obj.fontSize;
@@ -463,11 +602,36 @@ function serializeObject(obj) {
         baseData.fontFamily = obj.fontFamily;
     }
     
+    if (obj.type === 'path') {
+        baseData.pathData = obj.toObject();
+        console.log('📤 Serialisiere Path:', obj.id);
+    }
+    
+    if (obj.type === 'group') {
+        baseData.objects = obj.getObjects().map(o => ({
+            type: o.type,
+            left: o.left,
+            top: o.top,
+            width: o.width,
+            height: o.height,
+            stroke: o.stroke,
+            strokeWidth: o.strokeWidth,
+            fill: o.fill,
+            angle: o.angle,
+            originX: o.originX,
+            originY: o.originY,
+            x1: o.x1,
+            y1: o.y1,
+            x2: o.x2,
+            y2: o.y2
+        }));
+    }
+    
     return baseData;
 }
 
 function loadObjectFromServer(objData) {
-    console.log('🔧 loadObjectFromServer aufgerufen für:', objData.id);
+    console.log('🔧 loadObjectFromServer aufgerufen für:', objData.id, objData.type);
     
     const exists = canvas.getObjects().find(o => o.id === objData.id);
     if (exists) {
@@ -475,13 +639,11 @@ function loadObjectFromServer(objData) {
         return;
     }
 
-    // Bild laden
     if (objData.type === 'image' && objData.src) {
         console.log('🖼️ Lade Bild von URL:', objData.src);
         skipNextAdd = true;
         
         fabric.Image.fromURL(objData.src, (img) => {
-            console.log('✅ Bild geladen:', objData.id);
             img.id = objData.id;
             img._fromServer = true;
             img.set({
@@ -496,12 +658,9 @@ function loadObjectFromServer(objData) {
             
             canvas.add(img);
             canvas.renderAll();
-            console.log('✅ Objekt zur Canvas hinzugefügt');
-            
             delete img._fromServer;
         }, { crossOrigin: 'anonymous' });
     }
-    // Text laden
     else if (objData.type === 'i-text' || objData.type === 'text') {
         console.log('📝 Lade Text:', objData.text);
         skipNextAdd = true;
@@ -523,9 +682,70 @@ function loadObjectFromServer(objData) {
         
         canvas.add(text);
         canvas.renderAll();
-        console.log('✅ Text zur Canvas hinzugefügt');
-        
         delete text._fromServer;
+    }
+    else if (objData.type === 'path' && objData.pathData) {
+        console.log('✏️ Lade Freihand-Pfad:', objData.id);
+        skipNextAdd = true;
+        
+        fabric.Path.fromObject(objData.pathData, (path) => {
+            path.set({
+                left: objData.left,
+                top: objData.top,
+                scaleX: objData.scaleX,
+                scaleY: objData.scaleY,
+                angle: objData.angle,
+                id: objData.id,
+                _fromServer: true,
+                selectable: true
+            });
+            
+            canvas.add(path);
+            canvas.renderAll();
+            console.log('✅ Freihand-Pfad hinzugefügt');
+            delete path._fromServer;
+        });
+    }
+    else if (objData.type === 'group' && objData.objects) {
+        console.log('➡️ Lade Pfeil (Group):', objData.id);
+        skipNextAdd = true;
+        
+        const objects = objData.objects.map(o => {
+            if (o.type === 'line') {
+                return new fabric.Line([o.x1, o.y1, o.x2, o.y2], {
+                    stroke: o.stroke,
+                    strokeWidth: o.strokeWidth,
+                    left: o.left,
+                    top: o.top
+                });
+            } else if (o.type === 'triangle') {
+                return new fabric.Triangle({
+                    left: o.left,
+                    top: o.top,
+                    width: o.width,
+                    height: o.height,
+                    fill: o.fill,
+                    angle: o.angle,
+                    originX: o.originX,
+                    originY: o.originY
+                });
+            }
+        });
+        
+        const group = new fabric.Group(objects, {
+            left: objData.left,
+            top: objData.top,
+            scaleX: objData.scaleX,
+            scaleY: objData.scaleY,
+            angle: objData.angle,
+            id: objData.id,
+            _fromServer: true,
+            selectable: true
+        });
+        
+        canvas.add(group);
+        canvas.renderAll();
+        delete group._fromServer;
     }
     else {
         console.warn('⚠️ Ungültiges Objekt:', objData);

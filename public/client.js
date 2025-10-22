@@ -272,7 +272,6 @@ function initToolbar() {
     let currentBrushWidth = 3;
     let isFilled = false;
     
-    // Farb-Picker
     const colorPicker = document.getElementById('color-picker');
     colorPicker.addEventListener('change', (e) => {
         currentColor = e.target.value;
@@ -283,7 +282,6 @@ function initToolbar() {
         }
     });
     
-    // Pinselstärke-Slider
     const brushWidth = document.getElementById('brush-width');
     const brushWidthValue = document.getElementById('brush-width-value');
     brushWidth.addEventListener('input', (e) => {
@@ -295,50 +293,42 @@ function initToolbar() {
         }
     });
     
-    // Gefüllt-Checkbox
     const fillCheckbox = document.getElementById('fill-checkbox');
     fillCheckbox.addEventListener('change', (e) => {
         isFilled = e.target.checked;
         console.log('Gefüllt:', isFilled);
     });
     
-    // Text-Button
     document.getElementById('text-btn').addEventListener('click', () => {
         deactivateAllModes();
         addTextToCanvas(currentColor);
     });
     
-    // Pfeil-Button
     document.getElementById('arrow-btn').addEventListener('click', () => {
         deactivateAllModes();
         startArrowDrawing(currentColor, currentBrushWidth);
     });
     
-    // Zeichnen-Button
     document.getElementById('draw-btn').addEventListener('click', () => {
         deactivateAllModes();
         toggleDrawingMode(currentColor, currentBrushWidth);
     });
     
-    // Radiergummi-Button
     document.getElementById('eraser-btn').addEventListener('click', () => {
         deactivateAllModes();
         toggleEraserMode();
     });
     
-    // Rechteck-Button
     document.getElementById('rect-btn').addEventListener('click', () => {
         deactivateAllModes();
         startShapeDrawing('rect', currentColor, currentBrushWidth, isFilled);
     });
     
-    // Kreis-Button
     document.getElementById('circle-btn').addEventListener('click', () => {
         deactivateAllModes();
         startShapeDrawing('circle', currentColor, currentBrushWidth, isFilled);
     });
     
-    // Bild-Upload
     document.getElementById('image-upload').addEventListener('change', (e) => {
         deactivateAllModes();
         handleImageUpload(e);
@@ -348,6 +338,7 @@ function initToolbar() {
 function deactivateAllModes() {
     canvas.isDrawingMode = false;
     canvas.selection = true;
+    canvas.defaultCursor = 'default';
     document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
 }
 
@@ -364,11 +355,56 @@ function toggleDrawingMode(color, width) {
 function toggleEraserMode() {
     const eraserBtn = document.getElementById('eraser-btn');
     
-    canvas.isDrawingMode = true;
-    canvas.freeDrawingBrush = new fabric.EraserBrush(canvas);
-    canvas.freeDrawingBrush.width = 20;
+    canvas.isDrawingMode = false;
+    canvas.selection = false;
+    canvas.defaultCursor = 'crosshair';
     eraserBtn.classList.add('active');
-    console.log('Radiergummi aktiviert');
+    
+    let isErasing = false;
+    
+    const startErasing = function(opt) {
+        isErasing = true;
+        eraseAtPoint(opt);
+    };
+    
+    const continueErasing = function(opt) {
+        if (isErasing) {
+            eraseAtPoint(opt);
+        }
+    };
+    
+    const stopErasing = function() {
+        isErasing = false;
+        canvas.off('mouse:down', startErasing);
+        canvas.off('mouse:move', continueErasing);
+        canvas.off('mouse:up', stopErasing);
+        canvas.defaultCursor = 'default';
+        canvas.selection = true;
+        eraserBtn.classList.remove('active');
+    };
+    
+    function eraseAtPoint(opt) {
+        const pointer = canvas.getPointer(opt.e);
+        const objects = canvas.getObjects();
+        
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            if (obj.containsPoint(pointer)) {
+                canvas.remove(obj);
+                if (obj.id) {
+                    socket.emit('object-removed', { id: obj.id });
+                }
+                canvas.renderAll();
+                break;
+            }
+        }
+    }
+    
+    canvas.on('mouse:down', startErasing);
+    canvas.on('mouse:move', continueErasing);
+    canvas.on('mouse:up', stopErasing);
+    
+    console.log('Radiergummi aktiviert - fahre über Objekte zum Löschen');
 }
 
 function addTextToCanvas(color) {

@@ -375,9 +375,13 @@ function toggleEraserMode() {
     
     const stopErasing = function() {
         isErasing = false;
+        // Remove both mouse and touch events
         canvas.off('mouse:down', startErasing);
         canvas.off('mouse:move', continueErasing);
         canvas.off('mouse:up', stopErasing);
+        canvas.off('touch:start', startErasing);
+        canvas.off('touch:move', continueErasing);
+        canvas.off('touch:end', stopErasing);
         canvas.defaultCursor = 'default';
         canvas.selection = true;
         eraserBtn.classList.remove('active');
@@ -400,11 +404,17 @@ function toggleEraserMode() {
         }
     }
     
+    // Register BOTH mouse and touch events
     canvas.on('mouse:down', startErasing);
     canvas.on('mouse:move', continueErasing);
     canvas.on('mouse:up', stopErasing);
     
-    console.log('Radiergummi aktiviert - fahre über Objekte zum Löschen');
+    // Touch events for iPad/Mobile
+    canvas.on('touch:start', startErasing);
+    canvas.on('touch:move', continueErasing);
+    canvas.on('touch:end', stopErasing);
+    
+    console.log('Radiergummi aktiviert - fahre über Objekte zum Löschen (Mouse + Touch)');
 }
 
 function addTextToCanvas(color) {

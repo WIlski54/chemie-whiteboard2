@@ -364,11 +364,56 @@ function toggleDrawingMode(color, width) {
 function toggleEraserMode() {
     const eraserBtn = document.getElementById('eraser-btn');
     
-    canvas.isDrawingMode = true;
-    canvas.freeDrawingBrush = new fabric.EraserBrush(canvas);
-    canvas.freeDrawingBrush.width = 20;
+    canvas.isDrawingMode = false;
+    canvas.selection = false;
     eraserBtn.classList.add('active');
-    console.log('Radiergummi aktiviert');
+    
+    let isErasing = false;
+    
+    const startErasing = function(opt) {
+        isErasing = true;
+        eraseAtPoint(opt);
+    };
+    
+    const continueErasing = function(opt) {
+        if (isErasing) {
+            eraseAtPoint(opt);
+        }
+    };
+    
+    const stopErasing = function() {
+        isErasing = false;
+        canvas.off('mouse:down', startErasing);
+        canvas.off('mouse:move', continueErasing);
+        canvas.off('mouse:up', stopErasing);
+        canvas.defaultCursor = 'default';
+        canvas.selection = true;
+        eraserBtn.classList.remove('active');
+    };
+    
+    function eraseAtPoint(opt) {
+        const pointer = canvas.getPointer(opt.e);
+        const objects = canvas.getObjects();
+        
+        for (let i = objects.length - 1; i >= 0; i--) {
+            const obj = objects[i];
+            if (obj.containsPoint(pointer)) {
+                canvas.remove(obj);
+                if (obj.id) {
+                    socket.emit('object-removed', { id: obj.id });
+                }
+                canvas.renderAll();
+                break;
+            }
+        }
+    }
+    
+    canvas.defaultCursor = 'crosshair';
+    canvas.on('mouse:down', startErasing);
+    canvas.on('mouse:move', continueErasing);
+    canvas.on('mouse:up', stopErasing);
+    
+    console.log('Radiergummi aktiviert - fahre über Objekte zum Löschen');
 }
 
 function addTextToCanvas(color) {

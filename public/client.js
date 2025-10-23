@@ -734,21 +734,33 @@ function zoomToFit() {
 }
 
 function exportCanvasAsImage() {
-    // Zoom zurücksetzen für Export
+    // Aktuellen Zustand speichern
     const currentZoom = canvas.getZoom();
     const currentVpTransform = canvas.viewportTransform.slice();
+    const currentWidth = canvas.width;
+    const currentHeight = canvas.height;
     
+    // Canvas auf volle virtuelle Größe setzen
+    canvas.setDimensions({ 
+        width: VIRTUAL_WIDTH, 
+        height: VIRTUAL_HEIGHT 
+    });
     canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
     canvas.setZoom(1);
+    canvas.renderAll();
     
     // Canvas als PNG exportieren
     const dataURL = canvas.toDataURL({
         format: 'png',
         quality: 1,
-        multiplier: 2
+        multiplier: 1  // 1 statt 2, da wir schon volle Größe haben
     });
     
-    // Zoom wiederherstellen
+    // Alles wiederherstellen
+    canvas.setDimensions({ 
+        width: currentWidth, 
+        height: currentHeight 
+    });
     canvas.setZoom(currentZoom);
     canvas.setViewportTransform(currentVpTransform);
     canvas.renderAll();
@@ -762,7 +774,7 @@ function exportCanvasAsImage() {
     link.click();
     document.body.removeChild(link);
     
-    console.log('📸 Canvas als Bild exportiert!');
+    console.log('📸 Canvas als Bild exportiert! Größe: ' + VIRTUAL_WIDTH + 'x' + VIRTUAL_HEIGHT);
 }
 
 function initToolsPanel() {

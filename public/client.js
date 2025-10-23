@@ -262,6 +262,7 @@ function initCanvas() {
                 canvas.remove(activeObject);
                 canvas.renderAll();
                 console.log('Objekt gelöscht:', activeObject.id);
+                socket.emit('object-removed', { id: activeObject.id });
             }
         }
     });
@@ -314,11 +315,13 @@ function initToolbar() {
         toggleDrawingMode(currentColor, currentBrushWidth);
     });
     
+
+    /*
     document.getElementById('eraser-btn').addEventListener('click', () => {
         deactivateAllModes();
         toggleEraserMode();
     });
-    
+    */
     document.getElementById('rect-btn').addEventListener('click', () => {
         deactivateAllModes();
         startShapeDrawing('rect', currentColor, currentBrushWidth, isFilled);
@@ -351,7 +354,7 @@ function toggleDrawingMode(color, width) {
     drawBtn.classList.add('active');
     console.log('Zeichenmodus aktiviert');
 }
-
+/*
 function toggleEraserMode() {
     const eraserBtn = document.getElementById('eraser-btn');
     
@@ -403,7 +406,7 @@ function toggleEraserMode() {
             }
         }
     }
-    
+
     // Register BOTH mouse and touch events
     canvas.on('mouse:down', startErasing);
     canvas.on('mouse:move', continueErasing);
@@ -416,7 +419,7 @@ function toggleEraserMode() {
     
     console.log('Radiergummi aktiviert - fahre über Objekte zum Löschen (Mouse + Touch)');
 }
-
+*/
 function addTextToCanvas(color) {
     const text = new fabric.IText('Text hier eingeben...', {
         left: VIRTUAL_WIDTH / 2,

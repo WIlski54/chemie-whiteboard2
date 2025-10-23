@@ -251,9 +251,21 @@ function initCanvas() {
         }
     });
 
-document.getElementById('export-btn').addEventListener('click', () => {
+    document.getElementById('export-btn').addEventListener('click', () => {
     exportCanvasAsImage();
-});
+    });
+
+    document.getElementById('save-json-btn').addEventListener('click', () => {
+    saveCanvasAsJSON();
+    });
+
+    document.getElementById('load-json-btn').addEventListener('click', () => {
+        document.getElementById('load-json-input').click();
+    });
+
+    document.getElementById('load-json-input').addEventListener('change', (e) => {
+        loadCanvasFromJSON(e);
+    });
 
     document.getElementById('leave-btn').addEventListener('click', () => {
         location.reload();
@@ -777,6 +789,86 @@ function exportCanvasAsImage() {
     console.log('📸 Canvas als Bild exportiert! Größe: ' + VIRTUAL_WIDTH + 'x' + VIRTUAL_HEIGHT);
 }
 
+function saveCanvasAsJSON() {
+    // Canvas als JSON serialisieren
+    const json = JSON.stringify(canvas.toJSON(['id']));
+    
+    // Blob erstellen
+    const blob = new Blob([json], { type: 'application/json' });
+    
+    // Download triggern
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().split('T')[0];
+    const roomName = currentRoom || 'whiteboard';
+    link.download = `${roomName}-${timestamp}.json`;
+    link.href = URL.createObjectURL(blob);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    
+    console.log('💾 Canvas als JSON gespeichert!');
+}
+
+function saveCanvasAsJSON() {
+    // Canvas als JSON serialisieren
+    const json = JSON.stringify(canvas.toJSON(['id']));
+    
+    // Dateiname erstellen
+    const timestamp = new Date().toISOString().split('T')[0];
+    const roomName = currentRoom || 'whiteboard';
+    const filename = `${roomName}-${timestamp}.json`;
+    
+    // iOS/Safari Detection
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    
+    if (isIOS && navigator.share) {
+
+        // iOS: Native Share API nutzen
+        const blob = new Blob([json], { type: 'application/json' });
+        const file = new File([blob], filename, { type: 'application/json' });
+        
+        navigator.share({
+            files: [file],
+            title: 'Canvas speichern',
+            text: 'Chemie Whiteboard Canvas'
+        })
+        .then(() => console.log('💾 Canvas geteilt (iOS)'))
+        .catch(err => {
+            console.log('Share abgebrochen oder Fehler:', err);
+            // Fallback: Data URI Download
+            downloadViaDataURI(json, filename);
+        });
+    } else {
+        // Desktop/Android: Standard Blob-Download
+        const blob = new Blob([json], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.download = filename;
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+        
+        console.log('💾 Canvas als JSON gespeichert!');
+    }
+}
+
+function downloadViaDataURI(content, filename) {
+    // Fallback für iOS wenn Share API nicht funktioniert
+    const dataStr = 'data:application/json;charset=utf-8,' + encodeURIComponent(content);
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataStr;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('💾 Canvas als JSON gespeichert (Data URI)!');
+}
+
 function initToolsPanel() {
     const toolsList = document.getElementById('tools-list');
 
@@ -1129,3 +1221,4 @@ function loadObjectFromServer(objData) {
         console.warn('⚠️ Ungültiges Objekt:', objData);
     }
 }
+

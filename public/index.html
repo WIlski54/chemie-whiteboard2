@@ -49,13 +49,17 @@
                 <h2 id="room-title">Raum: <span id="current-room"></span></h2>
             </div>
             <div class="header-right">
+                <button id="save-json-btn" class="btn-secondary">💾 Speichern</button>
+                <button id="load-json-btn" class="btn-secondary">📂 Laden</button>
                 <button id="export-btn" class="btn-secondary">📸 Als Bild speichern</button>
                 <button id="clear-btn" class="btn-secondary">Canvas leeren</button>
                 <button id="leave-btn" class="btn-secondary">Verlassen</button>
             </div>
         </div>
 
-        <!-- Werkzeug-Toolbar -->
+  <input type="file" id="load-json-input" accept=".json" style="display: none;">
+        
+  <!-- Werkzeug-Toolbar -->
         <div class="toolbar">
             <button id="text-btn" class="tool-btn" title="Text hinzufügen">
                 📝 Text

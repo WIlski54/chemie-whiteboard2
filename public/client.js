@@ -252,11 +252,11 @@ function initCanvas() {
     });
 
     document.getElementById('export-btn').addEventListener('click', () => {
-    exportCanvasAsImage();
+        exportCanvasAsImage();
     });
 
     document.getElementById('save-json-btn').addEventListener('click', () => {
-    saveCanvasAsJSON();
+        saveCanvasAsJSON();
     });
 
     document.getElementById('load-json-btn').addEventListener('click', () => {
@@ -331,13 +331,6 @@ function initToolbar() {
         toggleDrawingMode(currentColor, currentBrushWidth);
     });
     
-
-    /*
-    document.getElementById('eraser-btn').addEventListener('click', () => {
-        deactivateAllModes();
-        toggleEraserMode();
-    });
-    */
     document.getElementById('rect-btn').addEventListener('click', () => {
         deactivateAllModes();
         startShapeDrawing('rect', currentColor, currentBrushWidth, isFilled);
@@ -370,72 +363,7 @@ function toggleDrawingMode(color, width) {
     drawBtn.classList.add('active');
     console.log('Zeichenmodus aktiviert');
 }
-/*
-function toggleEraserMode() {
-    const eraserBtn = document.getElementById('eraser-btn');
-    
-    canvas.isDrawingMode = false;
-    canvas.selection = false;
-    canvas.defaultCursor = 'crosshair';
-    eraserBtn.classList.add('active');
-    
-    let isErasing = false;
-    
-    const startErasing = function(opt) {
-        isErasing = true;
-        eraseAtPoint(opt);
-    };
-    
-    const continueErasing = function(opt) {
-        if (isErasing) {
-            eraseAtPoint(opt);
-        }
-    };
-    
-    const stopErasing = function() {
-        isErasing = false;
-        // Remove both mouse and touch events
-        canvas.off('mouse:down', startErasing);
-        canvas.off('mouse:move', continueErasing);
-        canvas.off('mouse:up', stopErasing);
-        canvas.off('touch:start', startErasing);
-        canvas.off('touch:move', continueErasing);
-        canvas.off('touch:end', stopErasing);
-        canvas.defaultCursor = 'default';
-        canvas.selection = true;
-        eraserBtn.classList.remove('active');
-    };
-    
-    function eraseAtPoint(opt) {
-        const pointer = canvas.getPointer(opt.e);
-        const objects = canvas.getObjects();
-        
-        for (let i = objects.length - 1; i >= 0; i--) {
-            const obj = objects[i];
-            if (obj.containsPoint(pointer)) {
-                canvas.remove(obj);
-                if (obj.id) {
-                    socket.emit('object-removed', { id: obj.id });
-                }
-                canvas.renderAll();
-                break;
-            }
-        }
-    }
 
-    // Register BOTH mouse and touch events
-    canvas.on('mouse:down', startErasing);
-    canvas.on('mouse:move', continueErasing);
-    canvas.on('mouse:up', stopErasing);
-    
-    // Touch events for iPad/Mobile
-    canvas.on('touch:start', startErasing);
-    canvas.on('touch:move', continueErasing);
-    canvas.on('touch:end', stopErasing);
-    
-    console.log('Radiergummi aktiviert - fahre über Objekte zum Löschen (Mouse + Touch)');
-}
-*/
 function addTextToCanvas(color) {
     const text = new fabric.IText('Text hier eingeben...', {
         left: VIRTUAL_WIDTH / 2,
@@ -765,7 +693,7 @@ function exportCanvasAsImage() {
     const dataURL = canvas.toDataURL({
         format: 'png',
         quality: 1,
-        multiplier: 1  // 1 statt 2, da wir schon volle Größe haben
+        multiplier: 1
     });
     
     // Alles wiederherstellen
@@ -793,27 +721,6 @@ function saveCanvasAsJSON() {
     // Canvas als JSON serialisieren
     const json = JSON.stringify(canvas.toJSON(['id']));
     
-    // Blob erstellen
-    const blob = new Blob([json], { type: 'application/json' });
-    
-    // Download triggern
-    const link = document.createElement('a');
-    const timestamp = new Date().toISOString().split('T')[0];
-    const roomName = currentRoom || 'whiteboard';
-    link.download = `${roomName}-${timestamp}.json`;
-    link.href = URL.createObjectURL(blob);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-    
-    console.log('💾 Canvas als JSON gespeichert!');
-}
-
-function saveCanvasAsJSON() {
-    // Canvas als JSON serialisieren
-    const json = JSON.stringify(canvas.toJSON(['id']));
-    
     // Dateiname erstellen
     const timestamp = new Date().toISOString().split('T')[0];
     const roomName = currentRoom || 'whiteboard';
@@ -823,9 +730,7 @@ function saveCanvasAsJSON() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     
-    
     if (isIOS && navigator.share) {
-
         // iOS: Native Share API nutzen
         const blob = new Blob([json], { type: 'application/json' });
         const file = new File([blob], filename, { type: 'application/json' });
@@ -867,6 +772,62 @@ function downloadViaDataURI(content, filename) {
     document.body.removeChild(link);
     
     console.log('💾 Canvas als JSON gespeichert (Data URI)!');
+}
+
+function loadCanvasFromJSON(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.json')) {
+        alert('Bitte wähle eine JSON-Datei!');
+        return;
+    }
+    
+    const reader = new FileReader();
+    
+    reader.onload = function(event) {
+        try {
+            const json = event.target.result;
+            
+            // Setze Flag, damit object:added Events nicht doppelt gesendet werden
+            isReceivingUpdate = true;
+            
+            // Canvas leeren und JSON laden
+            canvas.clear();
+            canvas.loadFromJSON(json, () => {
+                // Nach dem Laden: IDs und Eigenschaften setzen
+                canvas.getObjects().forEach(obj => {
+                    if (!obj.id) {
+                        obj.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    }
+                    obj.selectable = true;
+                    obj.hasControls = true;
+                });
+                
+                canvas.renderAll();
+                zoomToFit();
+                
+                // Alle Objekte an Server senden
+                canvas.getObjects().forEach(obj => {
+                    socket.emit('object-added', serializeObject(obj));
+                });
+                
+                setTimeout(() => { 
+                    isReceivingUpdate = false; 
+                }, 500);
+                
+                console.log('📂 Canvas aus JSON geladen! ' + canvas.getObjects().length + ' Objekte');
+            });
+            
+        } catch (error) {
+            console.error('Fehler beim Laden:', error);
+            alert('Fehler beim Laden der Datei!');
+            isReceivingUpdate = false;
+        }
+    };
+    
+    reader.readAsText(file);
+    e.target.value = '';
 }
 
 function initToolsPanel() {
@@ -1221,4 +1182,3 @@ function loadObjectFromServer(objData) {
         console.warn('⚠️ Ungültiges Objekt:', objData);
     }
 }
-

@@ -251,6 +251,10 @@ function initCanvas() {
         }
     });
 
+document.getElementById('export-btn').addEventListener('click', () => {
+    exportCanvasAsImage();
+});
+
     document.getElementById('leave-btn').addEventListener('click', () => {
         location.reload();
     });
@@ -727,6 +731,38 @@ function zoomToFit() {
     canvas.viewportTransform = [zoom, 0, 0, zoom, panX, panY];
     canvas.renderAll();
     console.log('🔎 Zoom to Fit durchgeführt. Zoom:', zoom);
+}
+
+function exportCanvasAsImage() {
+    // Zoom zurücksetzen für Export
+    const currentZoom = canvas.getZoom();
+    const currentVpTransform = canvas.viewportTransform.slice();
+    
+    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+    canvas.setZoom(1);
+    
+    // Canvas als PNG exportieren
+    const dataURL = canvas.toDataURL({
+        format: 'png',
+        quality: 1,
+        multiplier: 2
+    });
+    
+    // Zoom wiederherstellen
+    canvas.setZoom(currentZoom);
+    canvas.setViewportTransform(currentVpTransform);
+    canvas.renderAll();
+    
+    // Download triggern
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().split('T')[0];
+    link.download = `chemie-whiteboard-${timestamp}.png`;
+    link.href = dataURL;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('📸 Canvas als Bild exportiert!');
 }
 
 function initToolsPanel() {

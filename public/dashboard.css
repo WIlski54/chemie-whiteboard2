@@ -378,3 +378,12 @@
         flex-direction: column;
     }
 }
+/* ========== STIL FÜR LÖSCHEN-BUTTON ========== */
+.btn-delete {
+    background: #ff4444; /* Warnung Rot */
+    color: white;
+}
+
+.btn-delete:hover {
+    background: #d32f2f; /* Dunkleres Rot */
+}

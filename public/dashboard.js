@@ -128,12 +128,15 @@ function renderRooms(rooms) {
                     </div>
                 </div>
                 
-                <div class="room-actions">
+              <div class="room-actions">
                     <button class="btn-action btn-enter" onclick="enterRoom('${room.roomId}')">
-                        👁️ Raum betreten
+                        👁️ Betreten
                     </button>
                     <button class="btn-action ${lockBtnClass}" onclick="toggleRoomLock('${room.roomId}', ${!isLocked})">
                         ${lockBtnText}
+                    </button>
+                    <button class="btn-action btn-delete" onclick="deleteRoom('${room.roomId}')">
+                        🗑️ Löschen
                     </button>
                 </div>
             </div>
@@ -152,4 +155,15 @@ function enterRoom(roomId) {
 function toggleRoomLock(roomId, shouldLock) {
     console.log(`${shouldLock ? '🔒' : '🔓'} ${shouldLock ? 'Sperre' : 'Entsperre'} Raum:`, roomId);
     socket.emit('toggle-room-lock', { roomId: roomId, isLocked: shouldLock });
+}
+function deleteRoom(roomId) {
+    // Doppelte Sicherheitsabfrage, da dies endgültig ist
+    const confirmation = prompt(`Bist du sicher, dass du den Raum "${roomId}" endgültig löschen möchtest? Tippe zum Bestätigen "${roomId}" ein:`);
+    
+    if (confirmation === roomId) {
+        console.log(`🗑️ Sende Lösch-Anfrage für Raum: ${roomId}`);
+        socket.emit('delete-room', { roomId: roomId });
+    } else if (confirmation !== null) { // (null bedeutet "Abbrechen")
+        alert('Löschen abgebrochen. Der eingegebene Name stimmte nicht überein.');
+    }
 }

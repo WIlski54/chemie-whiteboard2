@@ -360,11 +360,20 @@ function initCanvas() {
         jsonUploadInput.addEventListener('change', loadCanvasFromJSON);
     }
 
-    document.getElementById('leave-btn').addEventListener('click', () => {
-        if (confirm('Möchtest du den Raum wirklich verlassen?')) {
-            window.location.href = '/'; // Zurück zur Login-Seite
+   document.getElementById('leave-btn').addEventListener('click', () => {
+    if (confirm('Möchtest du den Raum wirklich verlassen?')) {
+        // NEU: Prüfen, ob der User ein Lehrer/Observer ist
+        if (isTeacher || isObserver) {
+            // Lehrer/Observer gehen zurück zum Dashboard
+            // Wir holen den Namen aus dem localStorage, falls er nicht in der Variable ist
+            const teacherNameToPass = currentUser || localStorage.getItem('teacherName') || ''; 
+            window.location.href = `/dashboard.html?teacher=${encodeURIComponent(teacherNameToPass)}`;
+        } else {
+            // Normale User gehen zurück zur Login-Seite
+            window.location.href = '/'; 
         }
-    });
+    }
+});
 
     const imageUploadInput = document.getElementById('image-upload');
     if (imageUploadInput) {

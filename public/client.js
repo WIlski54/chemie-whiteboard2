@@ -777,11 +777,15 @@ function saveCanvasAsJSON() {
     const filename = `chemie-canvas-${Date.now()}.json`;
     
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const canShare = navigator.share && navigator.canShare;
+    const blob = new Blob([json], { type: 'application/json' });
+    const file = new File([blob], filename, { type: 'application/json' });
 
-    if (isIOS && canShare) {
-        const blob = new Blob([json], { type: 'application/json' });
-        const file = new File([blob], filename, { type: 'application/json' });
+    // KORRIGIERTE & VERBESSERTE PRÜFUNG:
+    // Wir prüfen jetzt, ob 'navigator.share' existiert UND ob 'navigator.canShare'
+    // uns meldet, dass es das Teilen von 'files' unterstützt.
+    if (isIOS && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        
+        console.log('Versuche iOS Share API (mit Datei-Prüfung)...');
         
         navigator.share({
             files: [file],
@@ -790,11 +794,14 @@ function saveCanvasAsJSON() {
         })
         .then(() => console.log('💾 Canvas geteilt (iOS)'))
         .catch(err => {
+            // Fallback, falls User abbricht oder ein anderer Fehler auftritt
             console.log('Share abgebrochen oder Fehler:', err);
-            downloadViaDataURI(json, filename);
+            // Nutze die DataURI-Methode als Fallback, da sie auf iOS stabiler ist
+            downloadViaDataURI(json, filename); 
         });
-    } else {
-        const blob = new Blob([json], { type: 'application/json' });
+    } else { 
+        // Fallback für PCs, Android, oder alte iOS-Versionen
+        console.log('Share API nicht unterstützt, verwende Standard-Download (createObjectURL).');
         const link = document.createElement('a');
         link.download = filename;
         link.href = URL.createObjectURL(blob);

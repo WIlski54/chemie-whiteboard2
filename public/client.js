@@ -279,6 +279,8 @@ function initCanvas() {
         }
     });
 
+    // ========== KORRIGIERTER BLOCK START ==========
+
     // Button Event Listener
     document.getElementById('clear-btn').addEventListener('click', () => {
         if (!isTeacher) {
@@ -300,18 +302,29 @@ function initCanvas() {
         saveCanvasAsJSON();
     });
 
+    // KORRIGIERT: Klickt auf das versteckte Input-Feld
     document.getElementById('load-json-btn').addEventListener('click', () => {
-        const input = document.getElementById('json-upload');
+        const input = document.getElementById('load-json-input'); // KORRIGIERT
         if (input) {
             input.click();
         }
     });
 
-    const jsonUploadInput = document.getElementById('json-upload');
+    // KORRIGIERT: Lauscht auf das richtige Input-Feld
+    const jsonUploadInput = document.getElementById('load-json-input'); // KORRIGIERT
     if (jsonUploadInput) {
         jsonUploadInput.addEventListener('change', loadCanvasFromJSON);
     }
 
+    // HINZUGEFÜGT: Listener für den "Verlassen"-Button
+    document.getElementById('leave-btn').addEventListener('click', () => {
+        if (confirm('Möchtest du den Raum wirklich verlassen?')) {
+            window.location.href = '/'; // Zurück zur Login-Seite
+        }
+    });
+
+    // ENTFERNT: Der 'delete-btn' existiert nicht in deiner index.html
+    /*
     document.getElementById('delete-btn').addEventListener('click', () => {
         const activeObj = canvas.getActiveObject();
         if (activeObj) {
@@ -321,70 +334,84 @@ function initCanvas() {
             console.log('🗑️ Objekt gelöscht:', objId);
         }
     });
+    */
 
     const imageUploadInput = document.getElementById('image-upload');
     if (imageUploadInput) {
         imageUploadInput.addEventListener('change', handleImageUpload);
     }
+    // ========== KORRIGIERTER BLOCK ENDE ==========
 }
 
-// ========== TOOLBAR INITIALISIERUNG ==========
+// ========== TOOLBAR INITIALISIERUNG (KOMPLETT NEU) ==========
 function initToolbar() {
-    const drawingModes = document.querySelectorAll('.drawing-mode');
-    const textColors = document.querySelectorAll('.text-color');
-    const shapeButtons = document.querySelectorAll('.shape-btn');
+    const toolButtons = document.querySelectorAll('.tool-btn');
+    const colorPicker = document.getElementById('color-picker');
+    const brushWidthSlider = document.getElementById('brush-width');
+    const brushWidthValue = document.getElementById('brush-width-value');
+    const fillCheckbox = document.getElementById('fill-checkbox');
 
-    drawingModes.forEach(btn => {
-        btn.addEventListener('click', () => {
-            drawingModes.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+    // Helper-Funktion, um den "active" Status zu setzen
+    function setActiveTool(activeButton) {
+        deactivateAllModes();
+        toolButtons.forEach(btn => btn.classList.remove('active'));
+        if (activeButton) {
+            activeButton.classList.add('active');
+        }
+    }
 
-            const mode = btn.dataset.mode;
-            const color = btn.dataset.color || '#000000';
-            const width = parseInt(btn.dataset.width) || 2;
+    // Standard-Tool (Auswählen)
+    setActiveTool(null);
+    canvas.selection = true;
 
-            if (mode === 'select') {
-                deactivateAllModes();
-            } else if (mode === 'draw') {
-                toggleDrawingMode(color, width);
-            } else if (mode === 'arrow') {
-                startArrowDrawing(color, width);
-            }
-        });
+    // ----- Tool-Buttons -----
+    document.getElementById('text-btn').addEventListener('click', (e) => {
+        setActiveTool(e.currentTarget);
+        addTextToCanvas(colorPicker.value);
     });
 
-    textColors.forEach(btn => {
-        btn.addEventListener('click', () => {
-            textColors.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            const color = btn.dataset.color;
-            addTextToCanvas(color);
-        });
+    document.getElementById('arrow-btn').addEventListener('click', (e) => {
+        setActiveTool(e.currentTarget);
+        startArrowDrawing(colorPicker.value, parseInt(brushWidthSlider.value));
     });
 
-    shapeButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            shapeButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            const shape = btn.dataset.shape;
-            const color = btn.dataset.color || '#4A90E2';
-            const width = parseInt(btn.dataset.width) || 2;
-            const filled = btn.dataset.filled === 'true';
-
-            startShapeDrawing(shape, color, width, filled);
-        });
+    document.getElementById('draw-btn').addEventListener('click', (e) => {
+        setActiveTool(e.currentTarget);
+        toggleDrawingMode(colorPicker.value, parseInt(brushWidthSlider.value));
     });
 
-    const uploadBtn = document.getElementById('upload-image-btn');
-    if (uploadBtn) {
-        uploadBtn.addEventListener('click', () => {
-            const input = document.getElementById('image-upload');
-            if (input) {
-                input.click();
-            }
+    document.getElementById('rect-btn').addEventListener('click', (e) => {
+        setActiveTool(e.currentTarget);
+        startShapeDrawing('rect', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
+    });
+
+    document.getElementById('circle-btn').addEventListener('click', (e) => {
+        setActiveTool(e.currentTarget);
+        startShapeDrawing('circle', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
+    });
+
+    // ----- Tool-Optionen -----
+    brushWidthSlider.addEventListener('input', (e) => {
+        const width = e.target.value;
+        brushWidthValue.textContent = width;
+        
+        // Wenn Freihand-Zeichnen aktiv ist, Pinselbreite direkt anpassen
+        if (canvas.isDrawingMode) {
+            canvas.freeDrawingBrush.width = parseInt(width);
+        }
+    });
+
+    // Bild-Upload-Button (ist ein Label, kein Input)
+    const uploadLabel = document.querySelector('label[for="image-upload"]');
+    if (uploadLabel) {
+        uploadLabel.addEventListener('click', () => {
+            // Deaktiviere alle anderen Tools, wenn der Upload-Dialog geöffnet wird
+            setActiveTool(null);
+            canvas.selection = true;
         });
     }
+
+    console.log('✅ Neue Toolbar initialisiert');
 }
 
 function deactivateAllModes() {
@@ -796,15 +823,20 @@ function loadCanvasFromJSON(e) {
 
 // ========== LABORGERÄTE PANEL ==========
 function initToolsPanel() {
-    const container = document.querySelector('.tools-grid');
-    if (!container) return;
+    // KORRIGIERT: Sucht nach #tools-list statt .tools-grid
+    const container = document.getElementById('tools-list'); 
+    if (!container) {
+        console.error('❌ Tools-Panel-Container (#tools-list) nicht gefunden!');
+        return;
+    }
 
     labEquipment.forEach(equipment => {
         const card = document.createElement('div');
-        card.className = 'tool-card';
+        // KORRIGIERT: Verwendet die Klasse .tool-item aus style.css
+        card.className = 'tool-item'; 
         card.innerHTML = `
             <img src="/images/${equipment.file}" alt="${equipment.name}">
-            <p>${equipment.name}</p>
+            <span>${equipment.name}</span>
         `;
         card.addEventListener('click', () => addImageToCanvas(equipment));
         container.appendChild(card);
@@ -830,10 +862,12 @@ function initSocketListeners() {
         console.log('🔄 Erhalte Canvas-Zustand vom Server');
         isReceivingUpdate = true;
         
+        // KORRIGIERT: 'data' ist bereits das Array, nicht 'data.objects'
+        // basierend auf deinem server.js (Zeile 146)
         canvas.clear();
         
-        if (data.objects && data.objects.length > 0) {
-            data.objects.forEach(objData => {
+        if (Array.isArray(data) && data.length > 0) {
+            data.forEach(objData => {
                 loadObjectFromServer(objData);
             });
         }
@@ -901,19 +935,38 @@ function initSocketListeners() {
         zoomToFit();
     });
 
-    socket.on('room-locked', (data) => {
+    // KORRIGIERT: Lauscht auf 'room-lock-status' (wie in server.js Zeile 150)
+    socket.on('room-lock-status', (data) => {
         console.log('🔒 Raum-Sperrstatus:', data.isLocked);
         handleRoomLockStatus(data.isLocked);
     });
-
-    socket.on('user-joined', (data) => {
-        console.log('👤 Benutzer beigetreten:', data.userName);
-    });
-
-    socket.on('user-left', (data) => {
-        console.log('👋 Benutzer verlassen:', data.userName);
+    
+    // KORRIGIERT: Lauscht auf 'users-update' (wie in server.js Zeile 143)
+    socket.on('users-update', (users) => {
+        console.log('👥 User-Liste aktualisiert:', users);
+        updateUserList(users);
     });
 }
+
+// ========== HINZUGEFÜGT: User-Liste UI Update ==========
+function updateUserList(users) {
+    const userListContainer = document.getElementById('user-list');
+    if (!userListContainer) return;
+
+    userListContainer.innerHTML = ''; // Liste leeren
+
+    users.forEach(user => {
+        const userItem = document.createElement('div');
+        // KORRIGIERT: Verwendet Klassen aus style.css
+        userItem.className = 'user-item'; 
+        userItem.innerHTML = `
+            <div class="user-status"></div>
+            <span>${user.name} ${user.isTeacher ? ' (Lehrer)' : ''} ${user.isObserver ? ' (👁️)' : ''}</span>
+        `;
+        userListContainer.appendChild(userItem);
+    });
+}
+
 
 // ========== OBJEKT SERIALISIERUNG ==========
 function serializeObject(obj) {

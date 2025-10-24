@@ -773,20 +773,23 @@ function exportCanvasAsImage() {
 }
 
 function saveCanvasAsJSON() {
+    // Canvas als JSON serialisieren
     const json = JSON.stringify(canvas.toJSON(['id']));
-    const filename = `chemie-canvas-${Date.now()}.json`;
     
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-    // NEUE "OPTIMISTISCHE" LOGIK:
-    // Wir versuchen es einfach, wenn es iOS ist und 'navigator.share' existiert.
+    // Dateiname erstellen
+    const timestamp = new Date().toISOString().split('T')[0];
+    const roomName = currentRoom || 'whiteboard';
+    const filename = `${roomName}-${timestamp}.json`;
+    
+    // iOS/Safari Detection
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
     if (isIOS && navigator.share) {
-        
+        // iOS: Native Share API nutzen
         const blob = new Blob([json], { type: 'application/json' });
         const file = new File([blob], filename, { type: 'application/json' });
-
-        console.log('Versuche optimistischen iOS Share (ohne canShare-Check)...');
-
+        
         navigator.share({
             files: [file],
             title: 'Canvas speichern',
@@ -794,14 +797,12 @@ function saveCanvasAsJSON() {
         })
         .then(() => console.log('💾 Canvas geteilt (iOS)'))
         .catch(err => {
-            // Wenn das Teilen fehlschlägt (z.B. nicht unterstützt, User bricht ab, KEIN HTTPS)
-            console.log('Share fehlgeschlagen, starte Fallback-Download:', err);
-            // Fallback für iOS (dataURI ist oft stabiler als createObjectURL)
+            console.log('Share abgebrochen oder Fehler:', err);
+            // Fallback: Data URI Download
             downloadViaDataURI(json, filename);
         });
-    } else { 
-        // Fallback für PCs, Android, etc.
-        console.log('Kein iOS oder kein navigator.share, verwende Standard-Download.');
+    } else {
+        // Desktop/Android: Standard Blob-Download
         const blob = new Blob([json], { type: 'application/json' });
         const link = document.createElement('a');
         link.download = filename;
@@ -813,6 +814,19 @@ function saveCanvasAsJSON() {
         
         console.log('💾 Canvas als JSON gespeichert!');
     }
+}
+
+function downloadViaDataURI(content, filename) {
+    // Fallback für iOS wenn Share API nicht funktioniert
+    const dataStr = 'data:application/json;charset=utf-8,' + encodeURIComponent(content);
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = dataStr;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('💾 Canvas als JSON gespeichert (Data URI)!');
 }
 
 function downloadViaDataURI(content, filename) {

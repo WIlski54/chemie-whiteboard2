@@ -157,6 +157,28 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ========== NEU: RAUM LÖSCHEN (NUR LEHRER) ==========
+    socket.on('delete-room', (data) => {
+        const { roomId } = data;
+        
+        // Security Check: Nur Lehrer dürfen löschen
+        if (!socket.isTeacher) {
+            console.log(`⛔ Nicht-Lehrer (Socket: ${socket.id}) versuchte Raum ${roomId} zu löschen.`);
+            return;
+        }
+
+        if (rooms[roomId]) {
+            delete rooms[roomId];
+            console.log(`🗑️ Raum ${roomId} wurde von Lehrer ${socket.userName} gelöscht.`);
+            
+            // Sende ein Update an alle Dashboards, dass der Raum weg ist
+            broadcastDashboardUpdate();
+        } else {
+            console.log(`⚠️ Versuch, nicht-existenten Raum ${roomId} zu löschen.`);
+        }
+    });
+    // ========== ENDE NEUER BLOCK ==========
+
     // Objekt hinzugefügt
     socket.on('object-added', (objData) => {
         const roomId = socket.roomId;
@@ -221,32 +243,6 @@ io.on('connection', (socket) => {
             console.log('🗑️ Canvas geleert in Raum:', roomId);
         }
     });
-
-// ========== NEU: RAUM LÖSCHEN (NUR LEHRER) ==========
-    socket.on('delete-room', (data) => {
-        const { roomId } = data;
-        
-        // Security Check: Nur Lehrer dürfen löschen
-        if (!socket.isTeacher) {
-            console.log(`⛔ Nicht-Lehrer (Socket: ${socket.id}) versuchte Raum ${roomId} zu löschen.`);
-            return;
-        }
-
-        if (rooms[roomId]) {
-            delete rooms[roomId];
-            console.log(`🗑️ Raum ${roomId} wurde von Lehrer ${socket.userName} gelöscht.`);
-            
-            // Sende ein Update an alle Dashboards, dass der Raum weg ist
-            broadcastDashboardUpdate();
-        } else {
-            console.log(`⚠️ Versuch, nicht-existenten Raum ${roomId} zu löschen.`);
-        }
-    });
-
-    // Objekt hinzugefügt
-    socket.on('object-added', (objData) => {
-    // ... (der Rest deiner Datei)
-
 
     // Disconnection
     socket.on('disconnect', () => {

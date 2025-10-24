@@ -414,3 +414,51 @@ body {
         grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
     }
 }
+/* ========== RAUM SPERREN UI ========== */
+/* Diese Klasse wird per JS auf #whiteboard-screen gesetzt */
+.ui-locked .toolbar,
+.ui-locked .tools-panel,
+.ui-locked .canvas-wrapper {
+    opacity: 0.6;
+    pointer-events: none; /* Blockiert alle Klicks */
+    user-select: none;
+}
+
+/* Sicherstellen, dass der Header klickbar bleibt... */
+.ui-locked .header {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ...aber alle Buttons im Header sperren, AUSSER "Verlassen" */
+.ui-locked .header #save-json-btn,
+.ui-locked .header #load-json-btn,
+.ui-locked .header #export-btn,
+.ui-locked .header #clear-btn {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* "Verlassen"-Button explizit klickbar halten */
+.ui-locked .header #leave-btn {
+    opacity: 1;
+    pointer-events: auto;
+    border: 2px solid #ff4444; /* Optional: Visuelles Feedback */
+}
+
+/* Warnmeldung für gesperrten Raum (bereits in deiner JS-Datei) */
+.lock-warning {
+    position: fixed; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%);
+    background: rgba(255, 68, 68, 0.95); 
+    color: white;
+    padding: 20px 40px; 
+    border-radius: 12px; 
+    font-size: 18px; 
+    font-weight: 600;
+    z-index: 10000; 
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    transition: opacity 0.5s;
+}

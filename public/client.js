@@ -364,31 +364,37 @@ function initToolbar() {
     setActiveTool(null);
     canvas.selection = true;
 
-    // ----- Tool-Buttons -----
+    // ----- Tool-Buttons (MIT SPERR-PRÜFUNG) -----
     document.getElementById('text-btn').addEventListener('click', (e) => {
+        if (isRoomLocked) return; // <-- HINZUGEFÜGT
         setActiveTool(e.currentTarget);
         addTextToCanvas(colorPicker.value);
     });
 
     document.getElementById('arrow-btn').addEventListener('click', (e) => {
+        if (isRoomLocked) return; // <-- HINZUGEFÜGT
         setActiveTool(e.currentTarget);
         startArrowDrawing(colorPicker.value, parseInt(brushWidthSlider.value));
     });
 
     document.getElementById('draw-btn').addEventListener('click', (e) => {
+        if (isRoomLocked) return; // <-- HINZUGEFÜGT
         setActiveTool(e.currentTarget);
         toggleDrawingMode(colorPicker.value, parseInt(brushWidthSlider.value));
     });
 
     document.getElementById('rect-btn').addEventListener('click', (e) => {
+        if (isRoomLocked) return; // <-- HINZUGEFÜGT
         setActiveTool(e.currentTarget);
         startShapeDrawing('rect', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
     });
 
     document.getElementById('circle-btn').addEventListener('click', (e) => {
+        if (isRoomLocked) return; // <-- HINZUGEFÜGT
         setActiveTool(e.currentTarget);
         startShapeDrawing('circle', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
     });
+    // ----- ENDE SPERR-PRÜFUNG -----
 
     // ----- Tool-Optionen -----
     brushWidthSlider.addEventListener('input', (e) => {
@@ -653,6 +659,7 @@ function startShapeDrawing(shapeType, color, width, filled) {
 
 // ========== BILD-UPLOAD ==========
 function handleImageUpload(e) {
+    if (isRoomLocked) return; // <-- HINZUGEFÜGT
     const file = e.target.files[0];
     if (!file) return;
 
@@ -773,6 +780,7 @@ function downloadViaDataURI(content, filename) {
 }
 
 function loadCanvasFromJSON(e) {
+    if (isRoomLocked) return; // <-- HINZUGEFÜGT
     const file = e.target.files[0];
     if (!file) return;
     
@@ -844,6 +852,7 @@ function initToolsPanel() {
 }
 
 function addImageToCanvas(equipment) {
+    if (isRoomLocked) return; // <-- HINZUGEFÜGT
     const imgURL = `/images/${equipment.file}`;
     
     fabric.Image.fromURL(imgURL, (img) => {
@@ -1192,46 +1201,51 @@ function loadObjectFromServer(objData) {
     }
 }
 
-// ========== RAUM-SPERR-FUNKTIONALITÄT ==========
+// ========== RAUM-SPERR-FUNKTIONALITÄT (AKTUALISIERT) ==========
 function handleRoomLockStatus(isLocked) {
     isRoomLocked = isLocked;
+    const whiteboardScreen = document.getElementById('whiteboard-screen');
+    const warningEl = document.querySelector('.lock-warning');
     
-    if (isTeacher || isObserver) return;
+    if (isTeacher || isObserver) return; // Lehrer/Observer sind nicht betroffen
     
     if (isLocked) {
+        // UI sperren
+        whiteboardScreen.classList.add('ui-locked');
+        
+        // Canvas-Interaktion stoppen
         canvas.selection = false;
         canvas.isDrawingMode = false;
         canvas.forEachObject(obj => {
             obj.selectable = false;
             obj.evented = false;
         });
-        
-        if (!document.querySelector('.lock-warning')) {
+
+        // Warnmeldung anzeigen
+        if (!warningEl) {
             const warning = document.createElement('div');
             warning.className = 'lock-warning';
-            warning.style.cssText = `
-                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                background: rgba(255, 68, 68, 0.95); color: white;
-                padding: 20px 40px; border-radius: 12px; font-size: 18px; font-weight: 600;
-                z-index: 10000; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            `;
             warning.innerHTML = '🔒 Raum wurde gesperrt';
             document.body.appendChild(warning);
-            setTimeout(() => {
-                warning.style.opacity = '0';
-                warning.style.transition = 'opacity 0.5s';
-                setTimeout(() => warning.remove(), 500);
-            }, 3000);
         }
         console.log('🔒 Canvas gesperrt');
+
     } else {
+        // UI entsperren
+        whiteboardScreen.classList.remove('ui-locked');
+        
+        // Canvas-Interaktion erlauben
         canvas.selection = true;
         canvas.forEachObject(obj => {
             obj.selectable = true;
             obj.evented = true;
         });
-        const warning = document.querySelector('.lock-warning');
-        if (warning) warning.remove();
+
+        // Warnmeldung entfernen
+        if (warningEl) {
+            warningEl.style.opacity = '0';
+            setTimeout(() => warningEl.remove(), 500);
+        }
         console.log('🔓 Canvas entsperrt');
     }
     canvas.renderAll();

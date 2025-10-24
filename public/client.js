@@ -42,7 +42,7 @@ const labEquipment = [
     { name: 'Stativklammer', file: 'stativklammer.png' },
     { name: 'Stativring', file: 'stativring.png' },
     { name: 'Stopfen', file: 'stopfen.png' },
-    { name: 'Tiegel', file: 'tiegel.png' },
+    { name:Tiegel', file: 'tiegel.png' },
     { name: 'Tiegelzange', file: 'tiegelzange.png' },
     { name: 'Tondreieck', file: 'tondreieck.png' },
     { name: 'Uhrglas', file: 'urglas.png' },
@@ -279,8 +279,6 @@ function initCanvas() {
         }
     });
 
-    // ========== KORRIGIERTER BLOCK START ==========
-
     // Button Event Listener
     document.getElementById('clear-btn').addEventListener('click', () => {
         if (!isTeacher) {
@@ -302,48 +300,68 @@ function initCanvas() {
         saveCanvasAsJSON();
     });
 
-    // KORRIGIERT: Klickt auf das versteckte Input-Feld
     document.getElementById('load-json-btn').addEventListener('click', () => {
-        const input = document.getElementById('load-json-input'); // KORRIGIERT
+        const input = document.getElementById('load-json-input'); 
         if (input) {
             input.click();
         }
     });
 
-    // KORRIGIERT: Lauscht auf das richtige Input-Feld
-    const jsonUploadInput = document.getElementById('load-json-input'); // KORRIGIERT
+    const jsonUploadInput = document.getElementById('load-json-input'); 
     if (jsonUploadInput) {
         jsonUploadInput.addEventListener('change', loadCanvasFromJSON);
     }
 
-    // HINZUGEFÜGT: Listener für den "Verlassen"-Button
     document.getElementById('leave-btn').addEventListener('click', () => {
         if (confirm('Möchtest du den Raum wirklich verlassen?')) {
             window.location.href = '/'; // Zurück zur Login-Seite
         }
     });
 
-    // ENTFERNT: Der 'delete-btn' existiert nicht in deiner index.html
-    /*
-    document.getElementById('delete-btn').addEventListener('click', () => {
-        const activeObj = canvas.getActiveObject();
-        if (activeObj) {
-            const objId = activeObj.id;
-            canvas.remove(activeObj);
-            socket.emit('object-removed', { id: objId });
-            console.log('🗑️ Objekt gelöscht:', objId);
-        }
-    });
-    */
-
     const imageUploadInput = document.getElementById('image-upload');
     if (imageUploadInput) {
         imageUploadInput.addEventListener('change', handleImageUpload);
     }
-    // ========== KORRIGIERTER BLOCK ENDE ==========
+    
+    // ========== NEU: DELETE-TASTEN-FUNKTION ==========
+    window.addEventListener('keydown', (e) => {
+        const activeObj = canvas.getActiveObject();
+
+        // 1. Nichts tun, wenn kein Objekt ausgewählt ist
+        if (!activeObj) return; 
+
+        // 2. Nichts tun, wenn der Benutzer gerade Text auf der Canvas bearbeitet
+        if (activeObj.isEditing) return;
+
+        // 3. Nichts tun, wenn Raum für Schüler gesperrt ist
+        if (isRoomLocked && !isTeacher && !isObserver) {
+            return; 
+        }
+        
+        // 4. Prüfen auf "Delete" oder "Backspace" Taste
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault(); // Verhindert, dass der Browser bei Backspace zurück navigiert
+
+            // Handle "activeSelection" (Gruppe von mehreren ausgewählten Objekten)
+            if (activeObj.type === 'activeSelection') {
+                activeObj.forEachObject(obj => {
+                    canvas.remove(obj);
+                    socket.emit('object-removed', { id: obj.id });
+                });
+            } else {
+                // Handle einzelnes Objekt
+                canvas.remove(activeObj);
+                socket.emit('object-removed', { id: activeObj.id });
+            }
+            canvas.discardActiveObject();
+            canvas.renderAll();
+            console.log('🗑️ Objekt(e) mit Taste gelöscht');
+        }
+    });
+    // ========== ENDE NEUER CODEBLOCK ==========
 }
 
-// ========== TOOLBAR INITIALISIERUNG (KOMPLETT NEU) ==========
+// ========== TOOLBAR INITIALISIERUNG (AKTUALISIERT FÜR "SELECT") ==========
 function initToolbar() {
     const toolButtons = document.querySelectorAll('.tool-btn');
     const colorPicker = document.getElementById('color-picker');
@@ -353,7 +371,7 @@ function initToolbar() {
 
     // Helper-Funktion, um den "active" Status zu setzen
     function setActiveTool(activeButton) {
-        deactivateAllModes();
+        deactivateAllModes(); // Setzt canvas.selection = true
         toolButtons.forEach(btn => btn.classList.remove('active'));
         if (activeButton) {
             activeButton.classList.add('active');
@@ -364,60 +382,82 @@ function initToolbar() {
     setActiveTool(null);
     canvas.selection = true;
 
-    // ----- Tool-Buttons (MIT SPERR-PRÜFUNG) -----
+    // ----- Tool-Buttons (MIT TOGGLE-FUNKTION) -----
     document.getElementById('text-btn').addEventListener('click', (e) => {
-        if (isRoomLocked) return; // <-- HINZUGEFÜGT
-        setActiveTool(e.currentTarget);
-        addTextToCanvas(colorPicker.value);
+        if (isRoomLocked) return; 
+        const btn = e.currentTarget;
+        if (btn.classList.contains('active')) {
+            setActiveTool(null);
+        } else {
+            setActiveTool(btn);
+            addTextToCanvas(colorPicker.value);
+        }
     });
 
     document.getElementById('arrow-btn').addEventListener('click', (e) => {
-        if (isRoomLocked) return; // <-- HINZUGEFÜGT
-        setActiveTool(e.currentTarget);
-        startArrowDrawing(colorPicker.value, parseInt(brushWidthSlider.value));
+        if (isRoomLocked) return;
+        const btn = e.currentTarget;
+        if (btn.classList.contains('active')) {
+            setActiveTool(null);
+        } else {
+            setActiveTool(btn);
+            startArrowDrawing(colorPicker.value, parseInt(brushWidthSlider.value));
+        }
     });
 
     document.getElementById('draw-btn').addEventListener('click', (e) => {
-        if (isRoomLocked) return; // <-- HINZUGEFÜGT
-        setActiveTool(e.currentTarget);
-        toggleDrawingMode(colorPicker.value, parseInt(brushWidthSlider.value));
+        if (isRoomLocked) return;
+        const btn = e.currentTarget;
+        if (btn.classList.contains('active')) {
+            setActiveTool(null);
+        } else {
+            setActiveTool(btn);
+            toggleDrawingMode(colorPicker.value, parseInt(brushWidthSlider.value));
+        }
     });
 
     document.getElementById('rect-btn').addEventListener('click', (e) => {
-        if (isRoomLocked) return; // <-- HINZUGEFÜGT
-        setActiveTool(e.currentTarget);
-        startShapeDrawing('rect', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
+        if (isRoomLocked) return;
+        const btn = e.currentTarget;
+        if (btn.classList.contains('active')) {
+            setActiveTool(null);
+        } else {
+            setActiveTool(btn);
+            startShapeDrawing('rect', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
+        }
     });
 
     document.getElementById('circle-btn').addEventListener('click', (e) => {
-        if (isRoomLocked) return; // <-- HINZUGEFÜGT
-        setActiveTool(e.currentTarget);
-        startShapeDrawing('circle', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
+        if (isRoomLocked) return;
+        const btn = e.currentTarget;
+        if (btn.classList.contains('active')) {
+            setActiveTool(null);
+        } else {
+            setActiveTool(btn);
+            startShapeDrawing('circle', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
+        }
     });
-    // ----- ENDE SPERR-PRÜFUNG -----
+    // ----- ENDE TOOL-BUTTONS -----
 
     // ----- Tool-Optionen -----
     brushWidthSlider.addEventListener('input', (e) => {
         const width = e.target.value;
         brushWidthValue.textContent = width;
         
-        // Wenn Freihand-Zeichnen aktiv ist, Pinselbreite direkt anpassen
         if (canvas.isDrawingMode) {
             canvas.freeDrawingBrush.width = parseInt(width);
         }
     });
 
-    // Bild-Upload-Button (ist ein Label, kein Input)
     const uploadLabel = document.querySelector('label[for="image-upload"]');
     if (uploadLabel) {
         uploadLabel.addEventListener('click', () => {
-            // Deaktiviere alle anderen Tools, wenn der Upload-Dialog geöffnet wird
             setActiveTool(null);
             canvas.selection = true;
         });
     }
 
-    console.log('✅ Neue Toolbar initialisiert');
+    console.log('✅ Neue Toolbar (mit Toggle) initialisiert');
 }
 
 function deactivateAllModes() {
@@ -426,7 +466,7 @@ function deactivateAllModes() {
     canvas.off('mouse:down');
     canvas.off('mouse:move');
     canvas.off('mouse:up');
-    console.log('✋ Alle Modi deaktiviert');
+    console.log('✋ Alle Modi deaktiviert (Select-Modus AN)');
 }
 
 function toggleDrawingMode(color, width) {
@@ -659,7 +699,7 @@ function startShapeDrawing(shapeType, color, width, filled) {
 
 // ========== BILD-UPLOAD ==========
 function handleImageUpload(e) {
-    if (isRoomLocked) return; // <-- HINZUGEFÜGT
+    if (isRoomLocked) return; 
     const file = e.target.files[0];
     if (!file) return;
 
@@ -780,7 +820,7 @@ function downloadViaDataURI(content, filename) {
 }
 
 function loadCanvasFromJSON(e) {
-    if (isRoomLocked) return; // <-- HINZUGEFÜGT
+    if (isRoomLocked) return; 
     const file = e.target.files[0];
     if (!file) return;
     
@@ -831,7 +871,6 @@ function loadCanvasFromJSON(e) {
 
 // ========== LABORGERÄTE PANEL ==========
 function initToolsPanel() {
-    // KORRIGIERT: Sucht nach #tools-list statt .tools-grid
     const container = document.getElementById('tools-list'); 
     if (!container) {
         console.error('❌ Tools-Panel-Container (#tools-list) nicht gefunden!');
@@ -840,7 +879,6 @@ function initToolsPanel() {
 
     labEquipment.forEach(equipment => {
         const card = document.createElement('div');
-        // KORRIGIERT: Verwendet die Klasse .tool-item aus style.css
         card.className = 'tool-item'; 
         card.innerHTML = `
             <img src="/images/${equipment.file}" alt="${equipment.name}">
@@ -852,7 +890,7 @@ function initToolsPanel() {
 }
 
 function addImageToCanvas(equipment) {
-    if (isRoomLocked) return; // <-- HINZUGEFÜGT
+    if (isRoomLocked) return; 
     const imgURL = `/images/${equipment.file}`;
     
     fabric.Image.fromURL(imgURL, (img) => {
@@ -871,8 +909,6 @@ function initSocketListeners() {
         console.log('🔄 Erhalte Canvas-Zustand vom Server');
         isReceivingUpdate = true;
         
-        // KORRIGIERT: 'data' ist bereits das Array, nicht 'data.objects'
-        // basierend auf deinem server.js (Zeile 146)
         canvas.clear();
         
         if (Array.isArray(data) && data.length > 0) {
@@ -944,13 +980,11 @@ function initSocketListeners() {
         zoomToFit();
     });
 
-    // KORRIGIERT: Lauscht auf 'room-lock-status' (wie in server.js Zeile 150)
     socket.on('room-lock-status', (data) => {
         console.log('🔒 Raum-Sperrstatus:', data.isLocked);
         handleRoomLockStatus(data.isLocked);
     });
     
-    // KORRIGIERT: Lauscht auf 'users-update' (wie in server.js Zeile 143)
     socket.on('users-update', (users) => {
         console.log('👥 User-Liste aktualisiert:', users);
         updateUserList(users);
@@ -962,11 +996,10 @@ function updateUserList(users) {
     const userListContainer = document.getElementById('user-list');
     if (!userListContainer) return;
 
-    userListContainer.innerHTML = ''; // Liste leeren
+    userListContainer.innerHTML = ''; 
 
     users.forEach(user => {
         const userItem = document.createElement('div');
-        // KORRIGIERT: Verwendet Klassen aus style.css
         userItem.className = 'user-item'; 
         userItem.innerHTML = `
             <div class="user-status"></div>

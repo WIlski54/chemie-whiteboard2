@@ -42,7 +42,7 @@ const labEquipment = [
     { name: 'Stativklammer', file: 'stativklammer.png' },
     { name: 'Stativring', file: 'stativring.png' },
     { name: 'Stopfen', file: 'stopfen.png' },
-    { name:Tiegel', file: 'tiegel.png' },
+    { name: 'Tiegel', file: 'tiegel.png' }, // <-- HIER WAR DER FEHLER
     { name: 'Tiegelzange', file: 'tiegelzange.png' },
     { name: 'Tondreieck', file: 'tondreieck.png' },
     { name: 'Uhrglas', file: 'urglas.png' },

@@ -5,6 +5,10 @@ let currentRoom = null;
 let currentUser = null;
 let isReceivingUpdate = false;
 let skipNextAdd = false;
+let isTeacher = false;
+let isObserver = false;
+let isRoomLocked = false;
+
 
 const VIRTUAL_WIDTH = 2400;
 const VIRTUAL_HEIGHT = 1600;
@@ -50,7 +54,17 @@ const labEquipment = [
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
-    initLoginScreen();
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomFromUrl = urlParams.get('room');
+    const teacherFromUrl = urlParams.get('teacher');
+    const observerMode = urlParams.get('observer') === 'true';
+    
+    if (roomFromUrl && teacherFromUrl && observerMode) {
+        socket = io();
+        joinRoom(teacherFromUrl, roomFromUrl, true, true);
+    } else {
+        initLoginScreen();
+    }
 });
 
 function initLoginScreen() {
@@ -78,28 +92,48 @@ function initLoginScreen() {
         });
     });
 
-    form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const userName = document.getElementById('user-name').value.trim();
-        const roomName = document.getElementById('room-name').value.trim();
+   form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const userName = document.getElementById('user-name').value.trim();
+    const roomName = document.getElementById('room-name').value.trim();
+    const activeTab = document.querySelector('.tab.active').dataset.tab;
 
-        if (userName && roomName) {
-            joinRoom(userName, roomName);
+    if (userName && roomName) {
+        if (activeTab === 'teacher') {
+            // Lehrer zum Dashboard
+            localStorage.setItem('teacherName', userName);
+            window.location.href = `/dashboard.html?teacher=${encodeURIComponent(userName)}`;
+        } else {
+            joinRoom(userName, roomName, false, false);
         }
-    });
+    }
+});
 }
 
-function joinRoom(userName, roomName) {
+function joinRoom(userName, roomName, asTeacher = false, asObserver = false) {
     currentUser = userName;
     currentRoom = roomName;
+    isTeacher = asTeacher;
+    isObserver = asObserver;
 
     console.log('🟢 Verbinde mit Server und trete Raum bei:', roomName);
     socket = io();
-    socket.emit('join-room', { roomId: roomName, userName: userName });
+    socket.emit('join-room', { 
+        roomId: roomName, 
+        userName: userName,
+        isTeacher: isTeacher,
+        isObserver: isObserver
+    });
 
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('whiteboard-screen').style.display = 'flex';
     document.getElementById('current-room').textContent = roomName;
+    
+    if (isObserver) {
+        document.getElementById('current-room').innerHTML = `
+            ${roomName} <span style="background: #ff9800; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 8px;">👁️ BEOBACHTER</span>
+        `;
+    }
 
     initCanvas();
     initToolsPanel();
@@ -244,11 +278,15 @@ function initCanvas() {
     });
 
     document.getElementById('clear-btn').addEventListener('click', () => {
-        if (confirm('Canvas wirklich leeren?')) {
-            canvas.clear();
-            zoomToFit();
-            socket.emit('clear-canvas');
-        }
+    if (!isTeacher) {
+        alert('Nur Lehrer können die Canvas leeren!');
+        return;
+    }
+    if (confirm('Canvas wirklich leeren?')) {
+        canvas.clear();
+        zoomToFit();
+        socket.emit('clear-canvas');
+    }
     });
 
     document.getElementById('export-btn').addEventListener('click', () => {
@@ -953,6 +991,10 @@ function initSocketListeners() {
         zoomToFit();
         setTimeout(() => { isReceivingUpdate = false; }, 50);
     });
+    socket.on('room-lock-status', (data) => {
+    console.log('🔒 Room-Lock-Status:', data.isLocked);
+    handleRoomLockStatus(data.isLocked);
+    });
 }
 
 function serializeObject(obj) {
@@ -1181,4 +1223,47 @@ function loadObjectFromServer(objData) {
     else {
         console.warn('⚠️ Ungültiges Objekt:', objData);
     }
+}
+function handleRoomLockStatus(isLocked) {
+    isRoomLocked = isLocked;
+    
+    if (isTeacher) return;
+    
+    if (isLocked) {
+        canvas.selection = false;
+        canvas.isDrawingMode = false;
+        canvas.forEachObject(obj => {
+            obj.selectable = false;
+            obj.evented = false;
+        });
+        
+        if (!document.querySelector('.lock-warning')) {
+            const warning = document.createElement('div');
+            warning.className = 'lock-warning';
+            warning.style.cssText = `
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background: rgba(255, 68, 68, 0.95); color: white;
+                padding: 20px 40px; border-radius: 12px; font-size: 18px; font-weight: 600;
+                z-index: 10000; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            `;
+            warning.innerHTML = '🔒 Raum wurde gesperrt';
+            document.body.appendChild(warning);
+            setTimeout(() => {
+                warning.style.opacity = '0';
+                warning.style.transition = 'opacity 0.5s';
+                setTimeout(() => warning.remove(), 500);
+            }, 3000);
+        }
+        console.log('🔒 Canvas gesperrt');
+    } else {
+        canvas.selection = true;
+        canvas.forEachObject(obj => {
+            obj.selectable = true;
+            obj.evented = true;
+        });
+        const warning = document.querySelector('.lock-warning');
+        if (warning) warning.remove();
+        console.log('🔓 Canvas entsperrt');
+    }
+    canvas.renderAll();
 }

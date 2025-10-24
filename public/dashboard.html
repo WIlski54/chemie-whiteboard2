@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lehrer-Dashboard - Chemie Whiteboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body class="dashboard-body">
+    <div class="dashboard-container">
+        <div class="dashboard-header">
+            <div class="header-left">
+                <span class="icon">👨‍🏫</span>
+                <div>
+                    <h1>Lehrer-Dashboard</h1>
+                    <p class="teacher-name">Angemeldet als: <span id="teacher-name"></span></p>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="refresh-btn" class="btn-action">🔄 Aktualisieren</button>
+                <button id="logout-btn" class="btn-secondary">Abmelden</button>
+            </div>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-icon">🏫</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="total-rooms">0</div>
+                    <div class="stat-label">Aktive Räume</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="total-users">0</div>
+                    <div class="stat-label">Aktive Schüler</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🎨</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="total-objects">0</div>
+                    <div class="stat-label">Objekte insgesamt</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="rooms-section">
+            <div class="section-header">
+                <h2>📋 Aktive Räume</h2>
+                <p class="section-subtitle">Klicke auf einen Raum um ihn zu betreten</p>
+            </div>
+
+            <div id="rooms-container" class="rooms-grid">
+                <!-- Räume werden hier dynamisch eingefügt -->
+            </div>
+
+            <div id="no-rooms-message" class="no-rooms">
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    <h3>Keine aktiven Räume</h3>
+                    <p>Sobald Schüler Räume erstellen, erscheinen sie hier.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

@@ -305,8 +305,15 @@ function initCanvas() {
         loadCanvasFromJSON(e);
     });
 
-    document.getElementById('leave-btn').addEventListener('click', () => {
+   ocument.getElementById('leave-btn').addEventListener('click', () => {
+    if (isTeacher && isObserver) {
+        // Lehrer zurück zum Dashboard
+        const teacherName = localStorage.getItem('teacherName') || currentUser;
+        window.location.href = `/dashboard.html?teacher=${encodeURIComponent(teacherName)}`;
+    } else {
+        // Normale User zurück zum Login
         location.reload();
+    }
     });
 
     document.addEventListener('keydown', (e) => {

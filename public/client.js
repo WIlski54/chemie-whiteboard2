@@ -9,7 +9,6 @@ let isTeacher = false;
 let isObserver = false;
 let isRoomLocked = false;
 
-
 const VIRTUAL_WIDTH = 2400;
 const VIRTUAL_HEIGHT = 1600;
 
@@ -46,13 +45,13 @@ const labEquipment = [
     { name: 'Tiegel', file: 'tiegel.png' },
     { name: 'Tiegelzange', file: 'tiegelzange.png' },
     { name: 'Tondreieck', file: 'tondreieck.png' },
-    { name: 'Tropftrichter', file: 'tropftrichter.png' },
     { name: 'Uhrglas', file: 'urglas.png' },
     { name: 'Verbrennungslöffel', file: 'verbrennungsloeffel.png' },
     { name: 'Wanne', file: 'wanne.png' },
     { name: 'Wasserstrahlpumpe', file: 'wasserstrahlpumpe.png' }
 ];
 
+// ========== INITIALISIERUNG ==========
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const roomFromUrl = urlParams.get('room');
@@ -92,22 +91,22 @@ function initLoginScreen() {
         });
     });
 
-   form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const userName = document.getElementById('user-name').value.trim();
-    const roomName = document.getElementById('room-name').value.trim();
-    const activeTab = document.querySelector('.tab.active').dataset.tab;
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const userName = document.getElementById('user-name').value.trim();
+        const roomName = document.getElementById('room-name').value.trim();
+        const activeTab = document.querySelector('.tab.active').dataset.tab;
 
-    if (userName && roomName) {
-        if (activeTab === 'teacher') {
-            // Lehrer zum Dashboard
-            localStorage.setItem('teacherName', userName);
-            window.location.href = `/dashboard.html?teacher=${encodeURIComponent(userName)}`;
-        } else {
-            joinRoom(userName, roomName, false, false);
+        if (userName && roomName) {
+            if (activeTab === 'teacher') {
+                // Lehrer zum Dashboard
+                localStorage.setItem('teacherName', userName);
+                window.location.href = `/dashboard.html?teacher=${encodeURIComponent(userName)}`;
+            } else {
+                joinRoom(userName, roomName, false, false);
+            }
         }
-    }
-});
+    });
 }
 
 function joinRoom(userName, roomName, asTeacher = false, asObserver = false) {
@@ -141,6 +140,7 @@ function joinRoom(userName, roomName, asTeacher = false, asObserver = false) {
     initToolbar();
 }
 
+// ========== CANVAS INITIALISIERUNG ==========
 function initCanvas() {
     const canvasEl = document.getElementById('canvas');
     const wrapper = document.querySelector('.canvas-wrapper');
@@ -160,6 +160,7 @@ function initCanvas() {
 
     zoomToFit();
 
+    // Pan & Zoom
     let isPanning = false;
     let lastPanX = 0;
     let lastPanY = 0;
@@ -234,6 +235,7 @@ function initCanvas() {
         zoomToFit();
     });
 
+    // Canvas Events
     canvas.on('object:added', (e) => {
         if (skipNextAdd) {
             console.log('⏭️ object:added übersprungen (skipNextAdd)');
@@ -277,16 +279,17 @@ function initCanvas() {
         }
     });
 
+    // Button Event Listener
     document.getElementById('clear-btn').addEventListener('click', () => {
-    if (!isTeacher) {
-        alert('Nur Lehrer können die Canvas leeren!');
-        return;
-    }
-    if (confirm('Canvas wirklich leeren?')) {
-        canvas.clear();
-        zoomToFit();
-        socket.emit('clear-canvas');
-    }
+        if (!isTeacher) {
+            alert('Nur Lehrer können die Canvas leeren!');
+            return;
+        }
+        if (confirm('Canvas wirklich leeren?')) {
+            canvas.clear();
+            zoomToFit();
+            socket.emit('clear-canvas');
+        }
     });
 
     document.getElementById('export-btn').addEventListener('click', () => {
@@ -298,121 +301,115 @@ function initCanvas() {
     });
 
     document.getElementById('load-json-btn').addEventListener('click', () => {
-        document.getElementById('load-json-input').click();
-    });
-
-    document.getElementById('load-json-input').addEventListener('change', (e) => {
-        loadCanvasFromJSON(e);
-    });
-
-   ocument.getElementById('leave-btn').addEventListener('click', () => {
-    if (isTeacher && isObserver) {
-        // Lehrer zurück zum Dashboard
-        const teacherName = localStorage.getItem('teacherName') || currentUser;
-        window.location.href = `/dashboard.html?teacher=${encodeURIComponent(teacherName)}`;
-    } else {
-        // Normale User zurück zum Login
-        location.reload();
-    }
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Delete' || e.key === 'Backspace') {
-            const activeObject = canvas.getActiveObject();
-            if (activeObject) {
-                canvas.remove(activeObject);
-                canvas.renderAll();
-                console.log('Objekt gelöscht:', activeObject.id);
-                socket.emit('object-removed', { id: activeObject.id });
-            }
+        const input = document.getElementById('json-upload');
+        if (input) {
+            input.click();
         }
     });
+
+    const jsonUploadInput = document.getElementById('json-upload');
+    if (jsonUploadInput) {
+        jsonUploadInput.addEventListener('change', loadCanvasFromJSON);
+    }
+
+    document.getElementById('delete-btn').addEventListener('click', () => {
+        const activeObj = canvas.getActiveObject();
+        if (activeObj) {
+            const objId = activeObj.id;
+            canvas.remove(activeObj);
+            socket.emit('object-removed', { id: objId });
+            console.log('🗑️ Objekt gelöscht:', objId);
+        }
+    });
+
+    const imageUploadInput = document.getElementById('image-upload');
+    if (imageUploadInput) {
+        imageUploadInput.addEventListener('change', handleImageUpload);
+    }
 }
 
+// ========== TOOLBAR INITIALISIERUNG ==========
 function initToolbar() {
-    let currentColor = '#000000';
-    let currentBrushWidth = 3;
-    let isFilled = false;
-    
-    const colorPicker = document.getElementById('color-picker');
-    colorPicker.addEventListener('change', (e) => {
-        currentColor = e.target.value;
-        console.log('Farbe geändert:', currentColor);
-        
-        if (canvas.isDrawingMode) {
-            canvas.freeDrawingBrush.color = currentColor;
-        }
+    const drawingModes = document.querySelectorAll('.drawing-mode');
+    const textColors = document.querySelectorAll('.text-color');
+    const shapeButtons = document.querySelectorAll('.shape-btn');
+
+    drawingModes.forEach(btn => {
+        btn.addEventListener('click', () => {
+            drawingModes.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const mode = btn.dataset.mode;
+            const color = btn.dataset.color || '#000000';
+            const width = parseInt(btn.dataset.width) || 2;
+
+            if (mode === 'select') {
+                deactivateAllModes();
+            } else if (mode === 'draw') {
+                toggleDrawingMode(color, width);
+            } else if (mode === 'arrow') {
+                startArrowDrawing(color, width);
+            }
+        });
     });
-    
-    const brushWidth = document.getElementById('brush-width');
-    const brushWidthValue = document.getElementById('brush-width-value');
-    brushWidth.addEventListener('input', (e) => {
-        currentBrushWidth = parseInt(e.target.value);
-        brushWidthValue.textContent = currentBrushWidth;
-        
-        if (canvas.isDrawingMode) {
-            canvas.freeDrawingBrush.width = currentBrushWidth;
-        }
+
+    textColors.forEach(btn => {
+        btn.addEventListener('click', () => {
+            textColors.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const color = btn.dataset.color;
+            addTextToCanvas(color);
+        });
     });
-    
-    const fillCheckbox = document.getElementById('fill-checkbox');
-    fillCheckbox.addEventListener('change', (e) => {
-        isFilled = e.target.checked;
-        console.log('Gefüllt:', isFilled);
+
+    shapeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            shapeButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const shape = btn.dataset.shape;
+            const color = btn.dataset.color || '#4A90E2';
+            const width = parseInt(btn.dataset.width) || 2;
+            const filled = btn.dataset.filled === 'true';
+
+            startShapeDrawing(shape, color, width, filled);
+        });
     });
-    
-    document.getElementById('text-btn').addEventListener('click', () => {
-        deactivateAllModes();
-        addTextToCanvas(currentColor);
-    });
-    
-    document.getElementById('arrow-btn').addEventListener('click', () => {
-        deactivateAllModes();
-        startArrowDrawing(currentColor, currentBrushWidth);
-    });
-    
-    document.getElementById('draw-btn').addEventListener('click', () => {
-        deactivateAllModes();
-        toggleDrawingMode(currentColor, currentBrushWidth);
-    });
-    
-    document.getElementById('rect-btn').addEventListener('click', () => {
-        deactivateAllModes();
-        startShapeDrawing('rect', currentColor, currentBrushWidth, isFilled);
-    });
-    
-    document.getElementById('circle-btn').addEventListener('click', () => {
-        deactivateAllModes();
-        startShapeDrawing('circle', currentColor, currentBrushWidth, isFilled);
-    });
-    
-    document.getElementById('image-upload').addEventListener('change', (e) => {
-        deactivateAllModes();
-        handleImageUpload(e);
-    });
+
+    const uploadBtn = document.getElementById('upload-image-btn');
+    if (uploadBtn) {
+        uploadBtn.addEventListener('click', () => {
+            const input = document.getElementById('image-upload');
+            if (input) {
+                input.click();
+            }
+        });
+    }
 }
 
 function deactivateAllModes() {
     canvas.isDrawingMode = false;
     canvas.selection = true;
-    canvas.defaultCursor = 'default';
-    document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+    canvas.off('mouse:down');
+    canvas.off('mouse:move');
+    canvas.off('mouse:up');
+    console.log('✋ Alle Modi deaktiviert');
 }
 
 function toggleDrawingMode(color, width) {
-    const drawBtn = document.getElementById('draw-btn');
-    
+    deactivateAllModes();
     canvas.isDrawingMode = true;
     canvas.freeDrawingBrush.color = color;
     canvas.freeDrawingBrush.width = width;
-    drawBtn.classList.add('active');
-    console.log('Zeichenmodus aktiviert');
+    console.log('✏️ Freihand-Modus aktiviert:', color, width);
 }
 
 function addTextToCanvas(color) {
-    const text = new fabric.IText('Text hier eingeben...', {
-        left: VIRTUAL_WIDTH / 2,
-        top: VIRTUAL_HEIGHT / 2,
+    deactivateAllModes();
+    
+    const text = new fabric.IText('Text eingeben', {
+        left: 100,
+        top: 100,
         fontSize: 24,
         fill: color,
         fontFamily: 'Arial',
@@ -424,162 +421,145 @@ function addTextToCanvas(color) {
     canvas.add(text);
     canvas.setActiveObject(text);
     text.enterEditing();
-    canvas.renderAll();
-    
-    console.log('Text hinzugefügt:', text.id);
+    console.log('📝 Text hinzugefügt:', text.id);
 }
 
 function startArrowDrawing(color, width) {
-    let isDown = false;
+    deactivateAllModes();
+    
+    let isDrawing = false;
     let startX, startY;
-    let tempLine = null;
-    
-    canvas.defaultCursor = 'crosshair';
-    canvas.selection = false;
-    document.getElementById('arrow-btn').classList.add('active');
-    
-    const mouseDown = function(o) {
-        if (!isDown) {
-            isDown = true;
-            const pointer = canvas.getPointer(o.e);
-            startX = pointer.x;
-            startY = pointer.y;
-        }
-    };
-    
-    const mouseMove = function(o) {
-        if (!isDown) return;
+    let tempArrow = null;
+
+    canvas.on('mouse:down', (opt) => {
+        isDrawing = true;
+        const pointer = canvas.getPointer(opt.e);
+        startX = pointer.x;
+        startY = pointer.y;
+    });
+
+    canvas.on('mouse:move', (opt) => {
+        if (!isDrawing) return;
         
-        const pointer = canvas.getPointer(o.e);
+        const pointer = canvas.getPointer(opt.e);
         
-        if (tempLine) {
-            canvas.remove(tempLine);
+        if (tempArrow) {
+            canvas.remove(tempArrow);
         }
         
-        tempLine = new fabric.Line([startX, startY, pointer.x, pointer.y], {
-            stroke: color,
-            strokeWidth: width,
-            selectable: false,
-            evented: false
-        });
-        
-        canvas.add(tempLine);
+        tempArrow = createArrow(startX, startY, pointer.x, pointer.y, color, width);
+        tempArrow.selectable = false;
+        tempArrow.evented = false;
+        canvas.add(tempArrow);
         canvas.renderAll();
-    };
-    
-    const mouseUp = function(o) {
-        if (isDown) {
-            isDown = false;
-            const pointer = canvas.getPointer(o.e);
-            
-            if (tempLine) {
-                canvas.remove(tempLine);
-            }
-            
-            createArrow(startX, startY, pointer.x, pointer.y, color, width);
-            
-            canvas.off('mouse:down', mouseDown);
-            canvas.off('mouse:move', mouseMove);
-            canvas.off('mouse:up', mouseUp);
-            canvas.defaultCursor = 'default';
-            canvas.selection = true;
-            document.getElementById('arrow-btn').classList.remove('active');
+    });
+
+    canvas.on('mouse:up', (opt) => {
+        if (!isDrawing) return;
+        isDrawing = false;
+        
+        if (tempArrow) {
+            canvas.remove(tempArrow);
         }
-    };
-    
-    canvas.on('mouse:down', mouseDown);
-    canvas.on('mouse:move', mouseMove);
-    canvas.on('mouse:up', mouseUp);
+        
+        const pointer = canvas.getPointer(opt.e);
+        const finalArrow = createArrow(startX, startY, pointer.x, pointer.y, color, width);
+        finalArrow.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        finalArrow.selectable = true;
+        finalArrow.evented = true;
+        
+        canvas.add(finalArrow);
+        console.log('➡️ Pfeil erstellt:', finalArrow.id);
+        
+        deactivateAllModes();
+    });
+
+    console.log('➡️ Pfeil-Zeichnen-Modus aktiviert');
 }
 
 function createArrow(x1, y1, x2, y2, color, width) {
     const angle = Math.atan2(y2 - y1, x2 - x1);
-    
+    const headLength = 15;
+
     const line = new fabric.Line([x1, y1, x2, y2], {
         stroke: color,
         strokeWidth: width,
-        selectable: false
+        selectable: false,
+        evented: false
     });
-    
-    const headSize = Math.max(15, width * 3);
-    const arrowHead = new fabric.Triangle({
+
+    const triangle = new fabric.Triangle({
         left: x2,
         top: y2,
+        width: headLength,
+        height: headLength,
+        fill: color,
+        angle: (angle * 180) / Math.PI + 90,
         originX: 'center',
         originY: 'center',
-        width: headSize,
-        height: headSize * 1.3,
-        fill: color,
-        angle: (angle * 180 / Math.PI) + 90,
-        selectable: false
+        selectable: false,
+        evented: false
     });
-    
-    const arrow = new fabric.Group([line, arrowHead], {
-        id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-        selectable: true
+
+    const group = new fabric.Group([line, triangle], {
+        selectable: true,
+        hasControls: true
     });
-    
-    canvas.add(arrow);
-    canvas.renderAll();
-    
-    console.log('Pfeil hinzugefügt:', arrow.id);
+
+    return group;
 }
 
 function startShapeDrawing(shapeType, color, width, filled) {
-    let isDown = false;
+    deactivateAllModes();
+    
+    let isDrawing = false;
     let startX, startY;
     let tempShape = null;
-    
-    canvas.defaultCursor = 'crosshair';
-    canvas.selection = false;
-    
-    const btnId = shapeType === 'rect' ? 'rect-btn' : 'circle-btn';
-    document.getElementById(btnId).classList.add('active');
-    
-    const mouseDown = function(o) {
-        if (!isDown) {
-            isDown = true;
-            const pointer = canvas.getPointer(o.e);
-            startX = pointer.x;
-            startY = pointer.y;
-        }
-    };
-    
-    const mouseMove = function(o) {
-        if (!isDown) return;
+
+    canvas.on('mouse:down', (opt) => {
+        isDrawing = true;
+        const pointer = canvas.getPointer(opt.e);
+        startX = pointer.x;
+        startY = pointer.y;
+    });
+
+    canvas.on('mouse:move', (opt) => {
+        if (!isDrawing) return;
         
-        const pointer = canvas.getPointer(o.e);
+        const pointer = canvas.getPointer(opt.e);
         
         if (tempShape) {
             canvas.remove(tempShape);
         }
         
+        const shapeWidth = Math.abs(pointer.x - startX);
+        const shapeHeight = Math.abs(pointer.y - startY);
         const left = Math.min(startX, pointer.x);
         const top = Math.min(startY, pointer.y);
-        const width2 = Math.abs(pointer.x - startX);
-        const height2 = Math.abs(pointer.y - startY);
-        
+
         if (shapeType === 'rect') {
             tempShape = new fabric.Rect({
                 left: left,
                 top: top,
-                width: width2,
-                height: height2,
+                width: shapeWidth,
+                height: shapeHeight,
                 fill: filled ? color : 'transparent',
                 stroke: color,
                 strokeWidth: width,
                 selectable: false,
                 evented: false
             });
-        } else {
-            const radius = Math.sqrt(width2 * width2 + height2 * height2) / 2;
+        } else if (shapeType === 'circle') {
+            const radius = Math.sqrt(Math.pow(shapeWidth, 2) + Math.pow(shapeHeight, 2)) / 2;
             tempShape = new fabric.Circle({
-                left: startX - radius,
-                top: startY - radius,
+                left: startX,
+                top: startY,
                 radius: radius,
                 fill: filled ? color : 'transparent',
                 stroke: color,
                 strokeWidth: width,
+                originX: 'center',
+                originY: 'center',
                 selectable: false,
                 evented: false
             });
@@ -587,96 +567,93 @@ function startShapeDrawing(shapeType, color, width, filled) {
         
         canvas.add(tempShape);
         canvas.renderAll();
-    };
-    
-    const mouseUp = function(o) {
-        if (isDown) {
-            isDown = false;
-            const pointer = canvas.getPointer(o.e);
-            
-            if (tempShape) {
-                canvas.remove(tempShape);
-            }
-            
-            const left = Math.min(startX, pointer.x);
-            const top = Math.min(startY, pointer.y);
-            const width2 = Math.abs(pointer.x - startX);
-            const height2 = Math.abs(pointer.y - startY);
-            
-            let finalShape;
-            
-            if (shapeType === 'rect') {
-                finalShape = new fabric.Rect({
-                    left: left,
-                    top: top,
-                    width: width2,
-                    height: height2,
-                    fill: filled ? color : 'transparent',
-                    stroke: color,
-                    strokeWidth: width,
-                    id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                    selectable: true
-                });
-            } else {
-                const radius = Math.sqrt(width2 * width2 + height2 * height2) / 2;
-                finalShape = new fabric.Circle({
-                    left: startX - radius,
-                    top: startY - radius,
-                    radius: radius,
-                    fill: filled ? color : 'transparent',
-                    stroke: color,
-                    strokeWidth: width,
-                    id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-                    selectable: true
-                });
-            }
-            
-            canvas.add(finalShape);
-            canvas.renderAll();
-            
-            canvas.off('mouse:down', mouseDown);
-            canvas.off('mouse:move', mouseMove);
-            canvas.off('mouse:up', mouseUp);
-            canvas.defaultCursor = 'default';
-            canvas.selection = true;
-            document.getElementById(btnId).classList.remove('active');
-            
-            console.log('Form hinzugefügt:', finalShape.id);
+    });
+
+    canvas.on('mouse:up', (opt) => {
+        if (!isDrawing) return;
+        isDrawing = false;
+        
+        if (tempShape) {
+            canvas.remove(tempShape);
         }
-    };
-    
-    canvas.on('mouse:down', mouseDown);
-    canvas.on('mouse:move', mouseMove);
-    canvas.on('mouse:up', mouseUp);
+        
+        const pointer = canvas.getPointer(opt.e);
+        const shapeWidth = Math.abs(pointer.x - startX);
+        const shapeHeight = Math.abs(pointer.y - startY);
+        const left = Math.min(startX, pointer.x);
+        const top = Math.min(startY, pointer.y);
+
+        let finalShape;
+        
+        if (shapeType === 'rect') {
+            finalShape = new fabric.Rect({
+                left: left,
+                top: top,
+                width: shapeWidth,
+                height: shapeHeight,
+                fill: filled ? color : 'transparent',
+                stroke: color,
+                strokeWidth: width,
+                id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                selectable: true,
+                evented: true
+            });
+        } else if (shapeType === 'circle') {
+            const radius = Math.sqrt(Math.pow(shapeWidth, 2) + Math.pow(shapeHeight, 2)) / 2;
+            finalShape = new fabric.Circle({
+                left: startX,
+                top: startY,
+                radius: radius,
+                fill: filled ? color : 'transparent',
+                stroke: color,
+                strokeWidth: width,
+                originX: 'center',
+                originY: 'center',
+                id: 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                selectable: true,
+                evented: true
+            });
+        }
+        
+        canvas.add(finalShape);
+        console.log(`⬜ ${shapeType} erstellt:`, finalShape.id);
+        
+        deactivateAllModes();
+    });
+
+    console.log(`⬜ ${shapeType}-Zeichnen-Modus aktiviert`);
 }
 
+// ========== BILD-UPLOAD ==========
 function handleImageUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
-    console.log('📤 Lade Bild hoch:', file.name);
-    
-    const formData = new FormData();
-    formData.append('image', file);
-    
-    fetch('/upload-image', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.url) {
+
+    if (!file.type.startsWith('image/')) {
+        alert('Bitte wähle eine Bilddatei!');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        fetch('/upload-image', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
             console.log('✅ Bild hochgeladen:', data.url);
             addUploadedImageToCanvas(data.url);
-        } else {
-            alert('Fehler beim Hochladen!');
-        }
-    })
-    .catch(error => {
-        console.error('Upload-Fehler:', error);
-        alert('Fehler beim Hochladen!');
-    });
-    
+        })
+        .catch(err => {
+            console.error('❌ Upload-Fehler:', err);
+            alert('Fehler beim Hochladen des Bildes!');
+        });
+    };
+    reader.readAsDataURL(file);
     e.target.value = '';
 }
 
@@ -684,99 +661,51 @@ function addUploadedImageToCanvas(url) {
     fabric.Image.fromURL(url, (img) => {
         img.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         img.scaleToWidth(200);
-        
-        img.set({
-            left: VIRTUAL_WIDTH / 2 - 100,
-            top: VIRTUAL_HEIGHT / 2 - 100,
-            selectable: true,
-            hasControls: true,
-            hasBorders: true,
-            objectCaching: false
-        });
-
-        console.log('✅ Hochgeladenes Bild zur Canvas hinzugefügt:', img.id);
+        img.set({ left: 100, top: 100 });
         canvas.add(img);
+        canvas.setActiveObject(img);
+        console.log('🖼️ Hochgeladenes Bild hinzugefügt:', img.id);
     }, { crossOrigin: 'anonymous' });
 }
 
+// ========== ZOOM & EXPORT ==========
 function zoomToFit() {
-    const wrapper = document.querySelector('.canvas-wrapper');
-    const width = wrapper.clientWidth;
-    const height = wrapper.clientHeight;
-
-    const scaleX = width / VIRTUAL_WIDTH;
-    const scaleY = height / VIRTUAL_HEIGHT;
-    const zoom = Math.min(scaleX, scaleY) * 0.95;
-
-    canvas.setZoom(zoom);
-
-    const panX = (width - (VIRTUAL_WIDTH * zoom)) / 2;
-    const panY = (height - (VIRTUAL_HEIGHT * zoom)) / 2;
-
-    canvas.viewportTransform = [zoom, 0, 0, zoom, panX, panY];
-    canvas.renderAll();
-    console.log('🔎 Zoom to Fit durchgeführt. Zoom:', zoom);
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const scaleX = canvasWidth / VIRTUAL_WIDTH;
+    const scaleY = canvasHeight / VIRTUAL_HEIGHT;
+    const scale = Math.min(scaleX, scaleY);
+    
+    canvas.setZoom(scale);
+    canvas.setViewportTransform([scale, 0, 0, scale, 0, 0]);
+    console.log('🔍 Zoom angepasst:', scale);
 }
 
 function exportCanvasAsImage() {
-    // Aktuellen Zustand speichern
-    const currentZoom = canvas.getZoom();
-    const currentVpTransform = canvas.viewportTransform.slice();
-    const currentWidth = canvas.width;
-    const currentHeight = canvas.height;
-    
-    // Canvas auf volle virtuelle Größe setzen
-    canvas.setDimensions({ 
-        width: VIRTUAL_WIDTH, 
-        height: VIRTUAL_HEIGHT 
-    });
-    canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-    canvas.setZoom(1);
-    canvas.renderAll();
-    
-    // Canvas als PNG exportieren
     const dataURL = canvas.toDataURL({
         format: 'png',
         quality: 1,
-        multiplier: 1
+        multiplier: 2
     });
-    
-    // Alles wiederherstellen
-    canvas.setDimensions({ 
-        width: currentWidth, 
-        height: currentHeight 
-    });
-    canvas.setZoom(currentZoom);
-    canvas.setViewportTransform(currentVpTransform);
-    canvas.renderAll();
-    
-    // Download triggern
+
     const link = document.createElement('a');
-    const timestamp = new Date().toISOString().split('T')[0];
-    link.download = `chemie-whiteboard-${timestamp}.png`;
+    link.download = `chemie-canvas-${Date.now()}.png`;
     link.href = dataURL;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    console.log('📸 Canvas als Bild exportiert! Größe: ' + VIRTUAL_WIDTH + 'x' + VIRTUAL_HEIGHT);
+    console.log('📸 Canvas als Bild exportiert!');
 }
 
 function saveCanvasAsJSON() {
-    // Canvas als JSON serialisieren
     const json = JSON.stringify(canvas.toJSON(['id']));
+    const filename = `chemie-canvas-${Date.now()}.json`;
     
-    // Dateiname erstellen
-    const timestamp = new Date().toISOString().split('T')[0];
-    const roomName = currentRoom || 'whiteboard';
-    const filename = `${roomName}-${timestamp}.json`;
-    
-    // iOS/Safari Detection
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-    
-    if (isIOS && navigator.share) {
-        // iOS: Native Share API nutzen
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const canShare = navigator.share && navigator.canShare;
+
+    if (isIOS && canShare) {
         const blob = new Blob([json], { type: 'application/json' });
         const file = new File([blob], filename, { type: 'application/json' });
         
@@ -788,11 +717,9 @@ function saveCanvasAsJSON() {
         .then(() => console.log('💾 Canvas geteilt (iOS)'))
         .catch(err => {
             console.log('Share abgebrochen oder Fehler:', err);
-            // Fallback: Data URI Download
             downloadViaDataURI(json, filename);
         });
     } else {
-        // Desktop/Android: Standard Blob-Download
         const blob = new Blob([json], { type: 'application/json' });
         const link = document.createElement('a');
         link.download = filename;
@@ -807,7 +734,6 @@ function saveCanvasAsJSON() {
 }
 
 function downloadViaDataURI(content, filename) {
-    // Fallback für iOS wenn Share API nicht funktioniert
     const dataStr = 'data:application/json;charset=utf-8,' + encodeURIComponent(content);
     const link = document.createElement('a');
     link.download = filename;
@@ -834,13 +760,10 @@ function loadCanvasFromJSON(e) {
         try {
             const json = event.target.result;
             
-            // Setze Flag, damit object:added Events nicht doppelt gesendet werden
             isReceivingUpdate = true;
             
-            // Canvas leeren und JSON laden
             canvas.clear();
             canvas.loadFromJSON(json, () => {
-                // Nach dem Laden: IDs und Eigenschaften setzen
                 canvas.getObjects().forEach(obj => {
                     if (!obj.id) {
                         obj.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -852,20 +775,16 @@ function loadCanvasFromJSON(e) {
                 canvas.renderAll();
                 zoomToFit();
                 
-                // Alle Objekte an Server senden
-                canvas.getObjects().forEach(obj => {
-                    socket.emit('object-added', serializeObject(obj));
+                isReceivingUpdate = false;
+                
+                socket.emit('full-sync', {
+                    objects: canvas.getObjects().map(obj => serializeObject(obj))
                 });
                 
-                setTimeout(() => { 
-                    isReceivingUpdate = false; 
-                }, 500);
-                
-                console.log('📂 Canvas aus JSON geladen! ' + canvas.getObjects().length + ' Objekte');
+                console.log('✅ Canvas aus JSON geladen und synchronisiert!');
             });
-            
         } catch (error) {
-            console.error('Fehler beim Laden:', error);
+            console.error('❌ Fehler beim Laden der JSON-Datei:', error);
             alert('Fehler beim Laden der Datei!');
             isReceivingUpdate = false;
         }
@@ -875,97 +794,77 @@ function loadCanvasFromJSON(e) {
     e.target.value = '';
 }
 
+// ========== LABORGERÄTE PANEL ==========
 function initToolsPanel() {
-    const toolsList = document.getElementById('tools-list');
+    const container = document.querySelector('.tools-grid');
+    if (!container) return;
 
     labEquipment.forEach(equipment => {
-        const toolItem = document.createElement('div');
-        toolItem.className = 'tool-item';
-        toolItem.innerHTML = `
-            <img src="/static/images/${equipment.file}" alt="${equipment.name}">
-            <span>${equipment.name}</span>
+        const card = document.createElement('div');
+        card.className = 'tool-card';
+        card.innerHTML = `
+            <img src="/images/${equipment.file}" alt="${equipment.name}">
+            <p>${equipment.name}</p>
         `;
-        toolItem.addEventListener('click', () => addImageToCanvas(equipment));
-        toolsList.appendChild(toolItem);
+        card.addEventListener('click', () => addImageToCanvas(equipment));
+        container.appendChild(card);
     });
 }
 
 function addImageToCanvas(equipment) {
-    const imgPath = `/static/images/${equipment.file}`;
+    const imgURL = `/images/${equipment.file}`;
     
-    console.log('➕ Füge Bild hinzu:', equipment.name);
-    
-    deactivateAllModes();
-    
-    fabric.Image.fromURL(imgPath, (img) => {
+    fabric.Image.fromURL(imgURL, (img) => {
         img.id = 'obj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         img.scaleToWidth(100);
-        
-        img.set({
-            left: VIRTUAL_WIDTH / 2 - 50,
-            top: VIRTUAL_HEIGHT / 2 - 50,
-            selectable: true,
-            hasControls: true,
-            hasBorders: true,
-            objectCaching: false
-        });
-
-        console.log('✅ Bild geladen, ID:', img.id);
+        img.set({ left: 100, top: 100 });
         canvas.add(img);
+        canvas.setActiveObject(img);
+        console.log('🧪 Laborgerät hinzugefügt:', equipment.name, img.id);
     }, { crossOrigin: 'anonymous' });
 }
 
+// ========== SOCKET LISTENERS ==========
 function initSocketListeners() {
-    console.log('🔌 Socket Listeners initialisiert');
-
-    socket.on('users-update', (users) => {
-        console.log('👥 User-Update:', users);
-        const userList = document.getElementById('user-list');
-        userList.innerHTML = '';
-        users.forEach(user => {
-            const userItem = document.createElement('div');
-            userItem.className = 'user-item';
-            userItem.innerHTML = `<div class="user-status"></div><span>${user.name}</span>`;
-            userList.appendChild(userItem);
-        });
-    });
-
-    socket.on('canvas-state', (objects) => {
-        console.log('🔵 Canvas-State empfangen:', objects.length, 'Objekte');
-        
+    socket.on('canvas-state', (data) => {
+        console.log('🔄 Erhalte Canvas-Zustand vom Server');
         isReceivingUpdate = true;
+        
         canvas.clear();
         
-        objects.forEach(objData => {
-            console.log('🔄 Lade Objekt:', objData.id, objData.type);
-            loadObjectFromServer(objData);
-        });
+        if (data.objects && data.objects.length > 0) {
+            data.objects.forEach(objData => {
+                loadObjectFromServer(objData);
+            });
+        }
         
-        zoomToFit();
-        
-        setTimeout(() => { 
-            console.log('✅ Canvas hat jetzt', canvas.getObjects().length, 'Objekte');
-            isReceivingUpdate = false; 
-        }, 500);
+        setTimeout(() => {
+            isReceivingUpdate = false;
+            console.log('✅ Canvas-Zustand geladen');
+        }, 100);
     });
 
     socket.on('object-added', (objData) => {
-        console.log('📥 object-added empfangen:', objData.id, objData.type);
+        if (isReceivingUpdate) {
+            console.log('⏭️ Überspringe object-added (isReceivingUpdate aktiv)');
+            return;
+        }
+        
+        console.log('📥 Erhalte object-added:', objData.id, objData.type);
         isReceivingUpdate = true;
         loadObjectFromServer(objData);
-        setTimeout(() => { isReceivingUpdate = false; }, 100);
+        
+        setTimeout(() => {
+            isReceivingUpdate = false;
+        }, 50);
     });
 
     socket.on('object-modified', (objData) => {
-        console.log('📥 object-modified empfangen:', objData.id);
+        console.log('📥 Erhalte object-modified:', objData.id);
+        isReceivingUpdate = true;
+        
         const obj = canvas.getObjects().find(o => o.id === objData.id);
         if (obj) {
-            isReceivingUpdate = true;
-            
-            if ((obj.type === 'i-text' || obj.type === 'text') && objData.text !== undefined) {
-                obj.set({ text: objData.text });
-            }
-            
             obj.set({
                 left: objData.left,
                 top: objData.top,
@@ -973,37 +872,50 @@ function initSocketListeners() {
                 scaleY: objData.scaleY,
                 angle: objData.angle
             });
-            obj.setCoords();
+            
+            if (objData.type === 'i-text' || objData.type === 'text') {
+                obj.set({ text: objData.text });
+            }
+            
             canvas.renderAll();
-            setTimeout(() => { isReceivingUpdate = false; }, 50);
-        } else {
-            console.warn('⚠️ Objekt nicht gefunden:', objData.id);
+            console.log('✅ Objekt aktualisiert:', objData.id);
         }
+        
+        setTimeout(() => {
+            isReceivingUpdate = false;
+        }, 50);
     });
 
     socket.on('object-removed', (data) => {
-        console.log('📥 object-removed empfangen:', data.id);
+        console.log('📥 Erhalte object-removed:', data.id);
         const obj = canvas.getObjects().find(o => o.id === data.id);
         if (obj) {
-            isReceivingUpdate = true;
             canvas.remove(obj);
-            setTimeout(() => { isReceivingUpdate = false; }, 50);
+            console.log('✅ Objekt entfernt:', data.id);
         }
     });
 
     socket.on('clear-canvas', () => {
-        console.log('📥 clear-canvas empfangen');
-        isReceivingUpdate = true;
+        console.log('🧹 Canvas geleert (vom Server)');
         canvas.clear();
         zoomToFit();
-        setTimeout(() => { isReceivingUpdate = false; }, 50);
     });
-    socket.on('room-lock-status', (data) => {
-    console.log('🔒 Room-Lock-Status:', data.isLocked);
-    handleRoomLockStatus(data.isLocked);
+
+    socket.on('room-locked', (data) => {
+        console.log('🔒 Raum-Sperrstatus:', data.isLocked);
+        handleRoomLockStatus(data.isLocked);
+    });
+
+    socket.on('user-joined', (data) => {
+        console.log('👤 Benutzer beigetreten:', data.userName);
+    });
+
+    socket.on('user-left', (data) => {
+        console.log('👋 Benutzer verlassen:', data.userName);
     });
 }
 
+// ========== OBJEKT SERIALISIERUNG ==========
 function serializeObject(obj) {
     const baseData = {
         id: obj.id,
@@ -1014,39 +926,32 @@ function serializeObject(obj) {
         scaleY: obj.scaleY,
         angle: obj.angle
     };
-    
-    if (obj.type === 'image' && obj.getSrc) {
+
+    if (obj.type === 'image') {
         baseData.src = obj.getSrc();
-    }
-    
-    if (obj.type === 'i-text' || obj.type === 'text') {
+    } else if (obj.type === 'i-text' || obj.type === 'text') {
         baseData.text = obj.text;
         baseData.fontSize = obj.fontSize;
         baseData.fill = obj.fill;
         baseData.fontFamily = obj.fontFamily;
-    }
-    
-    if (obj.type === 'path') {
-        baseData.pathData = obj.toObject();
-        console.log('📤 Serialisiere Path:', obj.id);
-    }
-    
-    if (obj.type === 'rect' || obj.type === 'circle') {
+    } else if (obj.type === 'path') {
+        baseData.pathData = obj.toObject(['path', 'stroke', 'strokeWidth', 'fill']);
+    } else if (obj.type === 'rect') {
         baseData.width = obj.width;
         baseData.height = obj.height;
+        baseData.fill = obj.fill;
+        baseData.stroke = obj.stroke;
+        baseData.strokeWidth = obj.strokeWidth;
+    } else if (obj.type === 'circle') {
         baseData.radius = obj.radius;
         baseData.fill = obj.fill;
         baseData.stroke = obj.stroke;
         baseData.strokeWidth = obj.strokeWidth;
-    }
-    
-    if (obj.type === 'group') {
+    } else if (obj.type === 'group') {
         baseData.objects = obj.getObjects().map(o => ({
             type: o.type,
             left: o.left,
             top: o.top,
-            width: o.width,
-            height: o.height,
             stroke: o.stroke,
             strokeWidth: o.strokeWidth,
             fill: o.fill,
@@ -1056,7 +961,9 @@ function serializeObject(obj) {
             x1: o.x1,
             y1: o.y1,
             x2: o.x2,
-            y2: o.y2
+            y2: o.y2,
+            width: o.width,
+            height: o.height
         }));
     }
     
@@ -1231,10 +1138,12 @@ function loadObjectFromServer(objData) {
         console.warn('⚠️ Ungültiges Objekt:', objData);
     }
 }
+
+// ========== RAUM-SPERR-FUNKTIONALITÄT ==========
 function handleRoomLockStatus(isLocked) {
     isRoomLocked = isLocked;
     
-    if (isTeacher) return;
+    if (isTeacher || isObserver) return;
     
     if (isLocked) {
         canvas.selection = false;

@@ -3,6 +3,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const multer = require('multer');
 const path = require('path');
+require('dotenv').config(); // LÄDT DIE .env DATEI (PASSWORT)
 
 const app = express();
 const server = http.createServer(app);
@@ -12,9 +13,10 @@ const PORT = process.env.PORT || 3000;
 
 // Statische Dateien bereitstellen
 app.use(express.static(path.join(__dirname, 'public')));
+// NEU: Notwendig, um JSON-Login-Daten (wie das Passwort) zu lesen
+app.use(express.json());
 
 // Räume und User speichern
-// Struktur: { roomId: { users: [], objects: [], isLocked: false, createdAt: timestamp } }
 const rooms = {};
 
 // ========== BILD-UPLOAD ==========
@@ -52,6 +54,29 @@ app.post('/upload-image', upload.single('image'), (req, res) => {
     const imageUrl = `/uploads/${req.file.filename}`;
     console.log('📤 Bild hochgeladen:', imageUrl);
     res.json({ url: imageUrl });
+});
+
+// ========== NEU: LEHRER-LOGIN-ROUTE ==========
+app.post('/teacher-login', (req, res) => {
+    const { password } = req.body;
+    
+    // Hole das Passwort aus der .env-Datei (oder den Render-Variablen)
+    const secretPassword = process.env.TEACHER_PASSWORD;
+
+    if (!secretPassword) {
+        console.error('FEHLER: TEACHER_PASSWORD ist nicht gesetzt!');
+        return res.status(500).json({ success: false, message: 'Server-Fehler: Passwort nicht konfiguriert.' });
+    }
+
+    if (password === secretPassword) {
+        // Passwort korrekt
+        console.log('👨‍🏫 Lehrer-Login erfolgreich');
+        res.json({ success: true });
+    } else {
+        // Passwort falsch
+        console.log('⛔ Falsches Passwort beim Lehrer-Login');
+        res.status(401).json({ success: false, message: 'Falsches Passwort!' });
+    }
 });
 
 // ========== HELPER FUNCTIONS ==========
@@ -157,7 +182,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ========== NEU: RAUM LÖSCHEN (NUR LEHRER) ==========
+    // RAUM LÖSCHEN (NUR LEHRER)
     socket.on('delete-room', (data) => {
         const { roomId } = data;
         
@@ -177,7 +202,6 @@ io.on('connection', (socket) => {
             console.log(`⚠️ Versuch, nicht-existenten Raum ${roomId} zu löschen.`);
         }
     });
-    // ========== ENDE NEUER BLOCK ==========
 
     // Objekt hinzugefügt
     socket.on('object-added', (objData) => {
@@ -244,7 +268,7 @@ io.on('connection', (socket) => {
         }
     });
 
-// ========== NEU: ALLE RÄUME SPERREN/ENTSPERREN ==========
+    // ALLE RÄUME SPERREN/ENTSPERREN
     socket.on('toggle-lock-all-rooms', (data) => {
         const { lock } = data; // lock ist true (sperren) oder false (entsperren)
         
@@ -293,7 +317,8 @@ io.on('connection', (socket) => {
             broadcastDashboardUpdate();
         }
     });
-});
+
+}); // Schließt io.on('connection', ...)
 
 server.listen(PORT, () => {
     console.log(`🚀 Server läuft auf Port ${PORT}`);

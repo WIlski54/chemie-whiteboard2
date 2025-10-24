@@ -42,7 +42,7 @@ const labEquipment = [
     { name: 'Stativklammer', file: 'stativklammer.png' },
     { name: 'Stativring', file: 'stativring.png' },
     { name: 'Stopfen', file: 'stopfen.png' },
-    { name: 'Tiegel', file: 'tiegel.png' }, // <-- HIER WAR DER FEHLER
+    { name: 'Tiegel', file: 'tiegel.png' },
     { name: 'Tiegelzange', file: 'tiegelzange.png' },
     { name: 'Tondreieck', file: 'tondreieck.png' },
     { name: 'Uhrglas', file: 'urglas.png' },
@@ -66,11 +66,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ========== NEUE LOGIN-LOGIK ==========
 function initLoginScreen() {
     const tabs = document.querySelectorAll('.tab');
     const form = document.getElementById('login-form');
     const submitBtn = form.querySelector('.btn-primary');
     const infoBox = document.querySelector('.info-box');
+    
+    // Formularfelder holen
+    const roomNameLabel = document.querySelector('label[for="room-name"]');
+    const roomNameInput = document.getElementById('room-name');
+    const roomFormGroup = roomNameInput.closest('.form-group');
 
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -78,36 +84,78 @@ function initLoginScreen() {
             tab.classList.add('active');
 
             const tabType = tab.dataset.tab;
-            if (tabType === 'join') {
-                submitBtn.textContent = 'Raum beitreten';
-                infoBox.innerHTML = '<p>Gib die Raum-ID ein, die du von deinem Lehrer erhalten hast.</p>';
-            } else if (tabType === 'teacher') {
-                submitBtn.textContent = 'Als Lehrer eintreten';
-                infoBox.innerHTML = '<p>🔒 Im Lehrermodus kannst du die Canvas leeren und hast erweiterte Rechte.</p>';
+            
+            // Felder dynamisch anpassen
+            if (tabType === 'teacher') {
+                // Zum Passwort-Feld ändern
+                roomNameLabel.textContent = 'Passwort';
+                roomNameInput.type = 'password';
+                roomNameInput.placeholder = 'Geheimes Passwort eingeben';
+                roomNameInput.value = ''; // Feld leeren
+                submitBtn.textContent = 'Dashboard betreten';
+                infoBox.innerHTML = '<p>🔒 Gib das Lehrer-Passwort ein, um das Dashboard zu betreten.</p>';
             } else {
-                submitBtn.textContent = 'Raum erstellen';
-                infoBox.innerHTML = '<p>Als Lehrer erstellst du einen neuen Raum. Du erhältst eine Raum-ID, die du deinen Schülern gibst.</p>';
+                // Zurück zum Raum-Feld
+                roomNameLabel.textContent = 'Raum-Name';
+                roomNameInput.type = 'text';
+                roomNameInput.placeholder = 'z.B. CH 9';
+                
+                if (tabType === 'join') {
+                    submitBtn.textContent = 'Raum beitreten';
+                    infoBox.innerHTML = '<p>Gib die Raum-ID ein, die du von deinem Lehrer erhalten hast.</p>';
+                } else { // 'create'
+                    submitBtn.textContent = 'Raum erstellen';
+                    infoBox.innerHTML = '<p>Als Lehrer erstellst du einen neuen Raum. Du erhältst eine Raum-ID, die du deinen Schülern gibst.</p>';
+                }
             }
         });
     });
 
-    form.addEventListener('submit', (e) => {
+    // Login-Formular-Absendung
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const userName = document.getElementById('user-name').value.trim();
-        const roomName = document.getElementById('room-name').value.trim();
+        const roomOrPass = document.getElementById('room-name').value.trim();
         const activeTab = document.querySelector('.tab.active').dataset.tab;
 
-        if (userName && roomName) {
-            if (activeTab === 'teacher') {
-                // Lehrer zum Dashboard
-                localStorage.setItem('teacherName', userName);
-                window.location.href = `/dashboard.html?teacher=${encodeURIComponent(userName)}`;
-            } else {
-                joinRoom(userName, roomName, false, false);
+        if (!userName || !roomOrPass) {
+            alert('Bitte fülle beide Felder aus.');
+            return;
+        }
+
+        if (activeTab === 'teacher') {
+            // ----- LEHRER-LOGIN-CHECK -----
+            try {
+                const response = await fetch('/teacher-login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password: roomOrPass }),
+                });
+
+                if (response.ok) {
+                    // Passwort war korrekt
+                    localStorage.setItem('teacherName', userName);
+                    window.location.href = `/dashboard.html?teacher=${encodeURIComponent(userName)}`;
+                } else {
+                    // Passwort war falsch
+                    const errorData = await response.json();
+                    alert(`Login fehlgeschlagen: ${errorData.message}`);
+                }
+            } catch (err) {
+                alert('Fehler bei der Verbindung zum Server.');
+                console.error('Login-Fehler:', err);
             }
+        } else {
+            // ----- SCHÜLER/RAUM-LOGIN (Wie bisher) -----
+            // 'roomOrPass' ist hier der Raumname
+            joinRoom(userName, roomOrPass, false, false);
         }
     });
 }
+// ========== ENDE NEUE LOGIN-LOGIK ==========
+
 
 function joinRoom(userName, roomName, asTeacher = false, asObserver = false) {
     currentUser = userName;
@@ -323,33 +371,26 @@ function initCanvas() {
         imageUploadInput.addEventListener('change', handleImageUpload);
     }
     
-    // ========== NEU: DELETE-TASTEN-FUNKTION ==========
+    // DELETE-TASTEN-FUNKTION
     window.addEventListener('keydown', (e) => {
         const activeObj = canvas.getActiveObject();
 
-        // 1. Nichts tun, wenn kein Objekt ausgewählt ist
         if (!activeObj) return; 
-
-        // 2. Nichts tun, wenn der Benutzer gerade Text auf der Canvas bearbeitet
         if (activeObj.isEditing) return;
 
-        // 3. Nichts tun, wenn Raum für Schüler gesperrt ist
         if (isRoomLocked && !isTeacher && !isObserver) {
             return; 
         }
         
-        // 4. Prüfen auf "Delete" oder "Backspace" Taste
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            e.preventDefault(); // Verhindert, dass der Browser bei Backspace zurück navigiert
+            e.preventDefault(); 
 
-            // Handle "activeSelection" (Gruppe von mehreren ausgewählten Objekten)
             if (activeObj.type === 'activeSelection') {
                 activeObj.forEachObject(obj => {
                     canvas.remove(obj);
                     socket.emit('object-removed', { id: obj.id });
                 });
             } else {
-                // Handle einzelnes Objekt
                 canvas.remove(activeObj);
                 socket.emit('object-removed', { id: activeObj.id });
             }
@@ -358,10 +399,9 @@ function initCanvas() {
             console.log('🗑️ Objekt(e) mit Taste gelöscht');
         }
     });
-    // ========== ENDE NEUER CODEBLOCK ==========
 }
 
-// ========== TOOLBAR INITIALISIERUNG (AKTUALISIERT FÜR "SELECT") ==========
+// TOOLBAR INITIALISIERUNG (MIT "SELECT")
 function initToolbar() {
     const toolButtons = document.querySelectorAll('.tool-btn');
     const colorPicker = document.getElementById('color-picker');
@@ -369,20 +409,18 @@ function initToolbar() {
     const brushWidthValue = document.getElementById('brush-width-value');
     const fillCheckbox = document.getElementById('fill-checkbox');
 
-    // Helper-Funktion, um den "active" Status zu setzen
     function setActiveTool(activeButton) {
-        deactivateAllModes(); // Setzt canvas.selection = true
+        deactivateAllModes(); 
         toolButtons.forEach(btn => btn.classList.remove('active'));
         if (activeButton) {
             activeButton.classList.add('active');
         }
     }
 
-    // Standard-Tool (Auswählen)
     setActiveTool(null);
     canvas.selection = true;
 
-    // ----- Tool-Buttons (MIT TOGGLE-FUNKTION) -----
+    // Tool-Buttons (MIT TOGGLE-FUNKTION)
     document.getElementById('text-btn').addEventListener('click', (e) => {
         if (isRoomLocked) return; 
         const btn = e.currentTarget;
@@ -437,9 +475,8 @@ function initToolbar() {
             startShapeDrawing('circle', colorPicker.value, parseInt(brushWidthSlider.value), fillCheckbox.checked);
         }
     });
-    // ----- ENDE TOOL-BUTTONS -----
 
-    // ----- Tool-Optionen -----
+    // Tool-Optionen
     brushWidthSlider.addEventListener('input', (e) => {
         const width = e.target.value;
         brushWidthValue.textContent = width;
@@ -829,18 +866,6 @@ function downloadViaDataURI(content, filename) {
     console.log('💾 Canvas als JSON gespeichert (Data URI)!');
 }
 
-function downloadViaDataURI(content, filename) {
-    const dataStr = 'data:application/json;charset=utf-8,' + encodeURIComponent(content);
-    const link = document.createElement('a');
-    link.download = filename;
-    link.href = dataStr;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    console.log('💾 Canvas als JSON gespeichert (Data URI)!');
-}
-
 function loadCanvasFromJSON(e) {
     if (isRoomLocked) return; 
     const file = e.target.files[0];
@@ -1013,7 +1038,7 @@ function initSocketListeners() {
     });
 }
 
-// ========== HINZUGEFÜGT: User-Liste UI Update ==========
+// User-Liste UI Update
 function updateUserList(users) {
     const userListContainer = document.getElementById('user-list');
     if (!userListContainer) return;
@@ -1256,7 +1281,7 @@ function loadObjectFromServer(objData) {
     }
 }
 
-// ========== RAUM-SPERR-FUNKTIONALITÄT (AKTUALISIERT) ==========
+// ========== RAUM-SPERR-FUNKTIONALITÄT ==========
 function handleRoomLockStatus(isLocked) {
     isRoomLocked = isLocked;
     const whiteboardScreen = document.getElementById('whiteboard-screen');

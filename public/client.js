@@ -777,16 +777,16 @@ function saveCanvasAsJSON() {
     const filename = `chemie-canvas-${Date.now()}.json`;
     
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const blob = new Blob([json], { type: 'application/json' });
-    const file = new File([blob], filename, { type: 'application/json' });
 
-    // KORRIGIERTE & VERBESSERTE PRÜFUNG:
-    // Wir prüfen jetzt, ob 'navigator.share' existiert UND ob 'navigator.canShare'
-    // uns meldet, dass es das Teilen von 'files' unterstützt.
-    if (isIOS && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    // NEUE "OPTIMISTISCHE" LOGIK:
+    // Wir versuchen es einfach, wenn es iOS ist und 'navigator.share' existiert.
+    if (isIOS && navigator.share) {
         
-        console.log('Versuche iOS Share API (mit Datei-Prüfung)...');
-        
+        const blob = new Blob([json], { type: 'application/json' });
+        const file = new File([blob], filename, { type: 'application/json' });
+
+        console.log('Versuche optimistischen iOS Share (ohne canShare-Check)...');
+
         navigator.share({
             files: [file],
             title: 'Canvas speichern',
@@ -794,14 +794,15 @@ function saveCanvasAsJSON() {
         })
         .then(() => console.log('💾 Canvas geteilt (iOS)'))
         .catch(err => {
-            // Fallback, falls User abbricht oder ein anderer Fehler auftritt
-            console.log('Share abgebrochen oder Fehler:', err);
-            // Nutze die DataURI-Methode als Fallback, da sie auf iOS stabiler ist
-            downloadViaDataURI(json, filename); 
+            // Wenn das Teilen fehlschlägt (z.B. nicht unterstützt, User bricht ab, KEIN HTTPS)
+            console.log('Share fehlgeschlagen, starte Fallback-Download:', err);
+            // Fallback für iOS (dataURI ist oft stabiler als createObjectURL)
+            downloadViaDataURI(json, filename);
         });
     } else { 
-        // Fallback für PCs, Android, oder alte iOS-Versionen
-        console.log('Share API nicht unterstützt, verwende Standard-Download (createObjectURL).');
+        // Fallback für PCs, Android, etc.
+        console.log('Kein iOS oder kein navigator.share, verwende Standard-Download.');
+        const blob = new Blob([json], { type: 'application/json' });
         const link = document.createElement('a');
         link.download = filename;
         link.href = URL.createObjectURL(blob);

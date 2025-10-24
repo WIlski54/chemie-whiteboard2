@@ -32,6 +32,18 @@ function initDashboard() {
             window.location.href = '/';
         }
     });
+
+    // NEU: Globaler Lock-Button
+    document.getElementById('lock-all-btn').addEventListener('click', () => {
+        const btn = document.getElementById('lock-all-btn');
+        
+        // Prüfe die aktuelle Klasse, um die gewünschte Aktion zu bestimmen
+        // .btn-lock (orange) bedeutet "Aktion: Sperren"
+        // .btn-unlock (grün) bedeutet "Aktion: Entsperren"
+        const shouldLock = btn.classList.contains('btn-lock');
+        
+        socket.emit('toggle-lock-all-rooms', { lock: shouldLock });
+    });
 }
 
 function initSocketListeners() {
@@ -68,6 +80,25 @@ function updateDashboard(rooms) {
     } else {
         noRoomsMessage.classList.remove('show');
         renderRooms(rooms);
+    }
+
+    // NEU: Globalen Lock-Button-Zustand aktualisieren
+    const lockAllBtn = document.getElementById('lock-all-btn');
+    if (lockAllBtn) {
+        // Prüfe, ob ALLE Räume (sofern welche da sind) bereits gesperrt sind
+        const allLocked = rooms.length > 0 && rooms.every(room => room.isLocked);
+        
+        if (allLocked) {
+            // Alle sind gesperrt -> Biete "Entsperren" an
+            lockAllBtn.textContent = '🔓 Alle Räume entsperren';
+            lockAllBtn.classList.remove('btn-lock');
+            lockAllBtn.classList.add('btn-unlock');
+        } else {
+            // Mindestens ein Raum ist offen -> Biete "Sperren" an
+            lockAllBtn.textContent = '🔒 Alle Räume sperren';
+            lockAllBtn.classList.remove('btn-unlock');
+            lockAllBtn.classList.add('btn-lock');
+        }
     }
 }
 
@@ -128,7 +159,7 @@ function renderRooms(rooms) {
                     </div>
                 </div>
                 
-              <div class="room-actions">
+                <div class="room-actions">
                     <button class="btn-action btn-enter" onclick="enterRoom('${room.roomId}')">
                         👁️ Betreten
                     </button>
@@ -156,6 +187,7 @@ function toggleRoomLock(roomId, shouldLock) {
     console.log(`${shouldLock ? '🔒' : '🔓'} ${shouldLock ? 'Sperre' : 'Entsperre'} Raum:`, roomId);
     socket.emit('toggle-room-lock', { roomId: roomId, isLocked: shouldLock });
 }
+
 function deleteRoom(roomId) {
     // Doppelte Sicherheitsabfrage, da dies endgültig ist
     const confirmation = prompt(`Bist du sicher, dass du den Raum "${roomId}" endgültig löschen möchtest? Tippe zum Bestätigen "${roomId}" ein:`);

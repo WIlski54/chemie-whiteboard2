@@ -244,6 +244,31 @@ io.on('connection', (socket) => {
         }
     });
 
+// ========== NEU: ALLE RÄUME SPERREN/ENTSPERREN ==========
+    socket.on('toggle-lock-all-rooms', (data) => {
+        const { lock } = data; // lock ist true (sperren) oder false (entsperren)
+        
+        if (!socket.isTeacher) {
+            console.log('⛔ Nicht-Lehrer versuchte alle Räume zu sperren');
+            return;
+        }
+
+        console.log(`--- 👨‍🏫 Lehrer ${socket.userName} ${lock ? 'SPERRT' : 'ENTSPERRT'} ALLE RÄUME ---`);
+        
+        // Gehe durch alle existierenden Räume
+        for (const roomId in rooms) {
+            if (rooms.hasOwnProperty(roomId)) {
+                rooms[roomId].isLocked = lock;
+                
+                // Sende den neuen Status an jeden einzelnen Raum (für die Schüler-Clients)
+                io.to(roomId).emit('room-lock-status', { isLocked: lock });
+            }
+        }
+        
+        // Sende ein Update an alle Lehrer-Dashboards
+        broadcastDashboardUpdate();
+    });
+
     // Disconnection
     socket.on('disconnect', () => {
         console.log('🔴 User getrennt:', socket.id);
